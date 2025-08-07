@@ -1,4 +1,3 @@
-<!-- الكود زي ما هو بدون تغيير في التصميم أو الميزات -->
 <!DOCTYPE html>
 <html lang="ar">
 <head>
@@ -7,7 +6,6 @@
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
   <style>
-    /* نفس التنسيقات القديمة بالضبط */
     body { background-color: #111; color: white; font-family: Tahoma; display: flex; flex-direction: column; align-items: center; padding: 20px; }
     h2 { color: #0f0; margin-bottom: 10px; }
     #chat-box { width: 90%; max-width: 600px; height: 400px; overflow-y: auto; background: #1a1a1a; border-radius: 10px; padding: 15px; margin: 15px 0; display: flex; flex-direction: column; }
@@ -57,10 +55,18 @@
     let currentRoom = "";
     let currentUser = "";
 
-    // ✅ تثبيت userId في localStorage
+    // ✅ توليد UUID ثابت
+    function generateUUID() {
+      return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+        const r = Math.random() * 16 | 0;
+        const v = c === 'x' ? r : (r & 0x3 | 0x8);
+        return v.toString(16);
+      });
+    }
+
     let userId = localStorage.getItem("userId");
     if (!userId) {
-      userId = Date.now().toString();
+      userId = generateUUID();
       localStorage.setItem("userId", userId);
     }
 
@@ -94,7 +100,6 @@
       userRef = db.ref(`rooms/${room}/users/${userId}`);
       const now = Date.now();
 
-      // ✅ نحدّث الاسم فقط لو المستخدم موجود بالفعل
       userRef.once("value").then(snapshot => {
         if (snapshot.exists()) {
           userRef.update({ name: currentUser, online: true, lastSeen: now });
