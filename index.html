@@ -1,3 +1,4 @@
+<!-- الكود زي ما هو بدون تغيير في التصميم أو الميزات -->
 <!DOCTYPE html>
 <html lang="ar">
 <head>
@@ -6,6 +7,7 @@
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
   <style>
+    /* نفس التنسيقات القديمة بالضبط */
     body { background-color: #111; color: white; font-family: Tahoma; display: flex; flex-direction: column; align-items: center; padding: 20px; }
     h2 { color: #0f0; margin-bottom: 10px; }
     #chat-box { width: 90%; max-width: 600px; height: 400px; overflow-y: auto; background: #1a1a1a; border-radius: 10px; padding: 15px; margin: 15px 0; display: flex; flex-direction: column; }
@@ -55,7 +57,7 @@
     let currentRoom = "";
     let currentUser = "";
 
-    // ✅ تثبيت userId باستخدام localStorage
+    // ✅ تثبيت userId في localStorage
     let userId = localStorage.getItem("userId");
     if (!userId) {
       userId = Date.now().toString();
@@ -92,7 +94,15 @@
       userRef = db.ref(`rooms/${room}/users/${userId}`);
       const now = Date.now();
 
-      userRef.set({ name: currentUser, online: true, lastSeen: now, points: 0 });
+      // ✅ نحدّث الاسم فقط لو المستخدم موجود بالفعل
+      userRef.once("value").then(snapshot => {
+        if (snapshot.exists()) {
+          userRef.update({ name: currentUser, online: true, lastSeen: now });
+        } else {
+          userRef.set({ name: currentUser, online: true, lastSeen: now, points: 0 });
+        }
+      });
+
       userRef.onDisconnect().update({ online: false, lastSeen: firebase.database.ServerValue.TIMESTAMP });
 
       localStorage.setItem("roomCode", currentRoom);
