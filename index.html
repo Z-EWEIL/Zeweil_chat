@@ -51,17 +51,19 @@
     };
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
+
     let currentRoom = "";
     let currentUser = "";
-    const userId = Date.now();
+
+    // ✅ تثبيت userId باستخدام localStorage
+    let userId = localStorage.getItem("userId");
+    if (!userId) {
+      userId = Date.now().toString();
+      localStorage.setItem("userId", userId);
+    }
+
     let userRef = null;
     const giftPrices = { '🌹': 5, '🎉': 10, '💎': 25, '🏆': 50 };
-
-    // ✅ تحميل البيانات المحفوظة تلقائيًا في الخانات
-    window.onload = function () {
-      document.getElementById("room").value = localStorage.getItem("roomCode") || "";
-      document.getElementById("username").value = localStorage.getItem("userName") || "";
-    };
 
     document.getElementById("onlineToggle").onclick = () => {
       const list = document.getElementById("onlineList");
