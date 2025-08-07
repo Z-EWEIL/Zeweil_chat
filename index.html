@@ -6,7 +6,26 @@
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
   <style>
-    /* ... نفس التنسيقات الموجودة بدون تعديل ... */
+    body { background-color: #111; color: white; font-family: Tahoma; display: flex; flex-direction: column; align-items: center; padding: 20px; }
+    h2 { color: #0f0; margin-bottom: 10px; }
+    #chat-box { width: 90%; max-width: 600px; height: 400px; overflow-y: auto; background: #1a1a1a; border-radius: 10px; padding: 15px; margin: 15px 0; display: flex; flex-direction: column; }
+    .message { max-width: 80%; padding: 10px 15px; margin: 8px 0; border-radius: 15px; position: relative; word-wrap: break-word; line-height: 1.4; }
+    .my-message { background-color: #0f0; color: #000; align-self: flex-end; border-bottom-right-radius: 0; }
+    .other-message { background-color: #333; color: #fff; align-self: flex-start; border-bottom-left-radius: 0; }
+    .sender { font-weight: bold; font-size: 0.85em; }
+    .time { font-size: 0.75em; opacity: 0.7; margin-top: 4px; text-align: right; }
+    .system-message { color: #888; font-style: italic; text-align: center; }
+    input, button { padding: 10px; border: none; border-radius: 5px; margin: 5px; }
+    input { width: 60%; }
+    #room { width: 200px; margin-bottom: 10px; }
+    button { background-color: #0f0; color: black; cursor: pointer; }
+    .emoji-picker { display: none; background: #222; border: 1px solid #333; border-radius: 8px; position: absolute; bottom: 35px; padding: 6px; }
+    .emoji-picker span { font-size: 20px; cursor: pointer; margin: 3px; }
+    .reactions { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 5px; }
+    .reaction { font-size: 14px; background: #444; padding: 2px 6px; border-radius: 10px; }
+    #onlineToggle { position: absolute; left: 15px; top: 15px; background: #0f0; color: #000; border-radius: 50%; width: 40px; height: 40px; font-size: 20px; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+    #onlineList { position: absolute; left: 15px; top: 65px; background: #222; color: white; padding: 10px; border-radius: 8px; display: none; max-height: 300px; overflow-y: auto; min-width: 200px; }
+    #giftShop { margin: 10px 0; }
   </style>
 </head>
 <body>
@@ -25,6 +44,7 @@
   <button onclick="sendMessage()">إرسال</button>
   <button onclick="startCall()">📹 مكالمة فيديو</button>
   <button onclick="startVoiceCall()">📞 مكالمة صوتية</button>
+
   <script>
     const firebaseConfig = {
       databaseURL: "https://zeweil-chat-default-rtdb.europe-west1.firebasedatabase.app/"
@@ -35,34 +55,18 @@
     let currentUser = "";
     const userId = Date.now();
     let userRef = null;
-
     const giftPrices = { '🌹': 5, '🎉': 10, '💎': 25, '🏆': 50 };
+
+    // ✅ تحميل البيانات المحفوظة تلقائيًا في الخانات
+    window.onload = function () {
+      document.getElementById("room").value = localStorage.getItem("roomCode") || "";
+      document.getElementById("username").value = localStorage.getItem("userName") || "";
+    };
 
     document.getElementById("onlineToggle").onclick = () => {
       const list = document.getElementById("onlineList");
       list.style.display = list.style.display === "block" ? "none" : "block";
     };
-
-    // استرجاع الاسم وكود الغرفة من localStorage تلقائيًا
-    window.onload = () => {
-      const savedRoom = localStorage.getItem("roomCode");
-      const savedName = localStorage.getItem("userName");
-      if (savedRoom) document.getElementById("room").value = savedRoom;
-      if (savedName) document.getElementById("username").value = savedName;
-
-      // الانضمام تلقائي لو في بيانات محفوظة
-      if (savedRoom && savedName) {
-        joinRoom();
-      }
-    };
-
-    // تفعيل الانضمام بالضغط على Enter
-    document.getElementById("username").addEventListener("keypress", function(e) {
-      if (e.key === "Enter") joinRoom();
-    });
-    document.getElementById("room").addEventListener("keypress", function(e) {
-      if (e.key === "Enter") joinRoom();
-    });
 
     function sendMessage() {
       const msg = document.getElementById("message").value.trim();
