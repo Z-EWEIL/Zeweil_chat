@@ -1,5 +1,4 @@
-<!DOCTYPE html>
-<html lang="ar">
+<!DOCTYPE html><html lang="ar">
 <head>
   <meta charset="UTF-8">
   <title>ZEWEIL Private Chat</title>
@@ -7,46 +6,34 @@
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
   <style>
-    body { background-color: #111; color: white; font-family: Tahoma; display: flex; flex-direction: column; align-items: center; padding: 20px; }
-    h2 { color: #0f0; margin-bottom: 10px; }
-    #chat-box { width: 90%; max-width: 600px; height: 400px; overflow-y: auto; background: #1a1a1a; border-radius: 10px; padding: 15px; margin: 15px 0; display: flex; flex-direction: column; }
-    .message { max-width: 80%; padding: 10px 15px; margin: 8px 0; border-radius: 15px; position: relative; word-wrap: break-word; line-height: 1.4; }
-    .my-message { background-color: #0f0; color: #000; align-self: flex-end; border-bottom-right-radius: 0; }
-    .other-message { background-color: #333; color: #fff; align-self: flex-start; border-bottom-left-radius: 0; }
-    .sender { font-weight: bold; font-size: 0.85em; }
-    .time { font-size: 0.75em; opacity: 0.7; margin-top: 4px; text-align: right; }
-    .system-message { color: #888; font-style: italic; text-align: center; }
-    input, button { padding: 10px; border: none; border-radius: 5px; margin: 5px; }
-    input { width: 60%; }
-    #room { width: 200px; margin-bottom: 10px; }
-    button { background-color: #0f0; color: black; cursor: pointer; }
-    .emoji-picker { display: none; background: #222; border: 1px solid #333; border-radius: 8px; position: absolute; bottom: 35px; padding: 6px; }
-    .emoji-picker span { font-size: 20px; cursor: pointer; margin: 3px; }
-    .reactions { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 5px; }
-    .reaction { font-size: 14px; background: #444; padding: 2px 6px; border-radius: 10px; }
-    #onlineToggle { position: absolute; left: 15px; top: 15px; background: #0f0; color: #000; border-radius: 50%; width: 40px; height: 40px; font-size: 20px; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; }
-    #onlineList { position: absolute; left: 15px; top: 65px; background: #222; color: white; padding: 10px; border-radius: 8px; display: none; max-height: 300px; overflow-y: auto; min-width: 200px; }
-    #giftShop { margin: 10px 0; }
+    /* هنا تقدر تضيف CSS حسب تصميمك */
+    body { font-family: sans-serif; background: #f2f2f2; padding: 20px; }
+    #chat-box { height: 300px; overflow-y: scroll; border: 1px solid #ccc; padding: 10px; background: #fff; }
+    .message { margin-bottom: 10px; padding: 5px; border-bottom: 1px solid #eee; }
+    .my-message { text-align: right; color: blue; }
+    .other-message { text-align: left; color: green; }
+    .system-message { text-align: center; color: gray; font-style: italic; }
+    .sender { font-weight: bold; }
+    .time { font-size: 0.8em; color: #888; }
+    .reactions { margin-top: 5px; }
+    .reaction { display: inline-block; margin-right: 5px; }
+    .emoji-picker span { cursor: pointer; margin: 2px; font-size: 18px; }
+    .emoji-picker { position: absolute; background: white; border: 1px solid #ccc; padding: 5px; }
   </style>
 </head>
 <body>
-  <div id="onlineToggle">👥</div>
-  <div id="onlineList"></div>
-  <h2>🔐 دردشة ZEWEIL الخاصة</h2>
-  <input type="text" id="room" placeholder="🛡️ كود الغرفة">
-  <input type="text" id="username" placeholder="🡩‍💬 اسمك">
-  <button onclick="joinRoom()">انضم</button>
-  <div id="giftShop">
-    <button onclick="window.open('https://app.fawaterk.com/paymentRequest/show/25451', '_blank')">🎁 شراء نقاط</button>
-    <span id="pointsDisplay">رصيدك: 0 🎯</span>
-  </div>
+  <input type="text" id="username" placeholder="اسم المستخدم">
+  <input type="text" id="room" placeholder="كود الغرفة">
+  <button onclick="joinRoom()">دخول</button>
+  <br><br>
+  <div id="pointsDisplay"></div>
+  <div id="onlineToggle">👥 عرض الأعضاء</div>
+  <div id="onlineList" style="display:none;"></div>
   <div id="chat-box"></div>
-  <input type="text" id="message" placeholder="💬 رسالتك">
+  <input type="text" id="message" placeholder="اكتب رسالتك هنا">
   <button onclick="sendMessage()">إرسال</button>
-  <button onclick="startCall()">📹 مكالمة فيديو</button>
-  <button onclick="startVoiceCall()">📞 مكالمة صوتية</button>
-
-  <script>
+  <button onclick="startCall()">مكالمة فيديو</button>
+  <button onclick="startVoiceCall()">مكالمة صوتية</button>  <script>
     const firebaseConfig = {
       apiKey: "AIzaSyAlim9FOvDcMqTJWINoBCHk3k6DNXS-jTo",
       authDomain: "zeweil-chat.firebaseapp.com",
@@ -64,14 +51,23 @@
     let userRef = null;
     let userId = null;
 
+    function storeUid(uid) {
+      localStorage.setItem("zeweil_uid", uid);
+    }
+
+    function getStoredUid() {
+      return localStorage.getItem("zeweil_uid");
+    }
+
     firebase.auth().onAuthStateChanged(user => {
       if (user) {
         userId = user.uid;
-      } else {
-        firebase.auth().signInAnonymously().catch(error => {
-          console.error("Auth error:", error.message);
-        });
+        storeUid(userId);
       }
+    });
+
+    firebase.auth().signInAnonymously().then(result => {
+      storeUid(result.user.uid);
     });
 
     const giftPrices = { '🌹': 5, '🎉': 10, '💎': 25, '🏆': 50 };
@@ -143,7 +139,7 @@
         `;
 
         const giftBtn = document.createElement("button");
-        giftBtn.textContent = "🎁";
+        giftBtn.textContent = "🏱";
         giftBtn.onclick = () => sendGift(data.name);
         msgDiv.appendChild(giftBtn);
 
@@ -227,7 +223,7 @@
         });
 
         db.ref("rooms/" + currentRoom + "/messages").push({
-          name: "🎁 هدية",
+          name: "🏱 هدية",
           message: `${currentUser} أرسل ${emoji} إلى ${toUser}`,
           time: new Date().toLocaleTimeString(),
           system: true
@@ -288,6 +284,5 @@
         userRef.update({ online: false, lastSeen: firebase.database.ServerValue.TIMESTAMP });
       }
     });
-  </script>
-</body>
+  </script></body>
 </html>
