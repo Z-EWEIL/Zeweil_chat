@@ -1,49 +1,13 @@
 <!DOCTYPE html>
-<html lang="ar">
+<html>
 <head>
-  <meta charset="UTF-8">
-  <title>ZEWEIL Private Chat</title>
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
-  <style>
-    body { background-color: #111; color: white; font-family: Tahoma; display: flex; flex-direction: column; align-items: center; padding: 20px; }
-    h2 { color: #0f0; margin-bottom: 10px; }
-    #chat-box { width: 90%; max-width: 600px; height: 400px; overflow-y: auto; background: #1a1a1a; border-radius: 10px; padding: 15px; margin: 15px 0; display: flex; flex-direction: column; }
-    .message { max-width: 80%; padding: 10px 15px; margin: 8px 0; border-radius: 15px; position: relative; word-wrap: break-word; line-height: 1.4; }
-    .my-message { background-color: #0f0; color: #000; align-self: flex-end; border-bottom-right-radius: 0; }
-    .other-message { background-color: #333; color: #fff; align-self: flex-start; border-bottom-left-radius: 0; }
-    .sender { font-weight: bold; font-size: 0.85em; }
-    .time { font-size: 0.75em; opacity: 0.7; margin-top: 4px; text-align: right; }
-    .system-message { color: #888; font-style: italic; text-align: center; }
-    input, button { padding: 10px; border: none; border-radius: 5px; margin: 5px; }
-    input { width: 60%; }
-    #room { width: 200px; margin-bottom: 10px; }
-    button { background-color: #0f0; color: black; cursor: pointer; }
-    .emoji-picker { display: none; background: #222; border: 1px solid #333; border-radius: 8px; position: absolute; bottom: 35px; padding: 6px; }
-    .emoji-picker span { font-size: 20px; cursor: pointer; margin: 3px; }
-    .reactions { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 5px; }
-    .reaction { font-size: 14px; background: #444; padding: 2px 6px; border-radius: 10px; }
-    #onlineToggle { position: absolute; left: 15px; top: 15px; background: #0f0; color: #000; border-radius: 50%; width: 40px; height: 40px; font-size: 20px; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; }
-    #onlineList { position: absolute; left: 15px; top: 65px; background: #222; color: white; padding: 10px; border-radius: 8px; display: none; max-height: 300px; overflow-y: auto; min-width: 200px; }
-    #giftShop { margin: 10px 0; }
-  </style>
 </head>
 <body>
-  <div id="onlineToggle">👥</div>
-  <div id="onlineList"></div>
-  <h2>🔐 دردشة ZEWEIL الخاصة</h2>
-  <input type="text" id="room" placeholder="🛡️ كود الغرفة">
-  <input type="text" id="username" placeholder="🡩‍💬 اسمك">
-  <button onclick="joinRoom()">انضم</button>
-  <div id="giftShop">
-    <button onclick="window.open('https://app.fawaterk.com/paymentRequest/show/25451', '_blank')">🎁 شراء نقاط</button>
-    <span id="pointsDisplay">رصيدك: 0 🎯</span>
-  </div>
-  <div id="chat-box"></div>
-  <input type="text" id="message" placeholder="💬 رسالتك">
-  <button onclick="sendMessage()">إرسال</button>
-  <button onclick="startCall()">📹 مكالمة فيديو</button>
-  <button onclick="startVoiceCall()">📞 مكالمة صوتية</button>
+  <input type="text" id="username" placeholder="اكتب اسمك">
+  <input type="text" id="room" placeholder="كود الروم">
+  <button onclick="joinRoom()">ادخل الروم</button>
 
   <script>
     const firebaseConfig = {
@@ -54,40 +18,15 @@
 
     let currentRoom = "";
     let currentUser = "";
+    let userId = null;
+    let userRef = null;
 
-    // ✅ توليد UUID ثابت
     function generateUUID() {
       return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
         const r = Math.random() * 16 | 0;
         const v = c === 'x' ? r : (r & 0x3 | 0x8);
         return v.toString(16);
       });
-    }
-
-    let userId = localStorage.getItem("userId");
-    if (!userId) {
-      userId = generateUUID();
-      localStorage.setItem("userId", userId);
-    }
-
-    let userRef = null;
-    const giftPrices = { '🌹': 5, '🎉': 10, '💎': 25, '🏆': 50 };
-
-    document.getElementById("onlineToggle").onclick = () => {
-      const list = document.getElementById("onlineList");
-      list.style.display = list.style.display === "block" ? "none" : "block";
-    };
-
-    function sendMessage() {
-      const msg = document.getElementById("message").value.trim();
-      if (!currentRoom || !currentUser || !msg) return;
-      db.ref("rooms/" + currentRoom + "/messages").push({
-        name: currentUser,
-        message: msg,
-        time: new Date().toLocaleTimeString(),
-        reactions: {}
-      });
-      document.getElementById("message").value = "";
     }
 
     function joinRoom() {
@@ -97,194 +36,46 @@
 
       currentRoom = room;
       currentUser = name;
-      userRef = db.ref(`rooms/${room}/users/${userId}`);
-      const now = Date.now();
 
-      userRef.once("value").then(snapshot => {
-        if (snapshot.exists()) {
-          userRef.update({ name: currentUser, online: true, lastSeen: now });
-        } else {
-          userRef.set({ name: currentUser, online: true, lastSeen: now, points: 0 });
-        }
-      });
+      const usersRef = db.ref(`rooms/${room}/users`);
+      usersRef.once("value", snapshot => {
+        let found = false;
 
-      userRef.onDisconnect().update({ online: false, lastSeen: firebase.database.ServerValue.TIMESTAMP });
-
-      localStorage.setItem("roomCode", currentRoom);
-      localStorage.setItem("userName", currentUser);
-
-      db.ref("rooms/" + room + "/messages").off();
-      document.getElementById("chat-box").innerHTML = "";
-
-      db.ref("rooms/" + room + "/messages").on("child_added", (snapshot) => {
-        const data = snapshot.val();
-        const key = snapshot.key;
-        const msgDiv = document.createElement("div");
-        msgDiv.classList.add("message");
-
-        if (data.system) {
-          msgDiv.classList.add("system-message");
-          msgDiv.textContent = data.message;
-          document.getElementById("chat-box").appendChild(msgDiv);
-          document.getElementById("chat-box").scrollTop = document.getElementById("chat-box").scrollHeight;
-          return;
-        }
-
-        msgDiv.classList.add(data.name === currentUser ? "my-message" : "other-message");
-        msgDiv.ondblclick = () => showEmojiPicker(msgDiv, key);
-
-        msgDiv.innerHTML = `
-          <div class="sender">${data.name}</div>
-          ${data.message}
-          <div class="time">${data.time}</div>
-        `;
-
-        const giftBtn = document.createElement("button");
-        giftBtn.textContent = "🎁";
-        giftBtn.onclick = () => sendGift(data.name);
-        msgDiv.appendChild(giftBtn);
-
-        const reactionsDiv = document.createElement("div");
-        reactionsDiv.className = "reactions";
-        if (data.reactions) {
-          Object.entries(data.reactions).forEach(([emoji, users]) => {
-            if (users.length > 0) {
-              const r = document.createElement("div");
-              r.className = "reaction";
-              r.textContent = `${emoji} ${users.length}`;
-              reactionsDiv.appendChild(r);
-            }
-          });
-        }
-
-        msgDiv.appendChild(reactionsDiv);
-        document.getElementById("chat-box").appendChild(msgDiv);
-        document.getElementById("chat-box").scrollTop = document.getElementById("chat-box").scrollHeight;
-      });
-
-      db.ref(`rooms/${room}/users/${userId}/points`).on("value", snap => {
-        document.getElementById("pointsDisplay").textContent = `رصيدك: ${snap.val() || 0} 🎯`;
-      });
-
-      db.ref(`rooms/${room}/users`).on("value", (snapshot) => {
-        const list = document.getElementById("onlineList");
-        list.innerHTML = "<strong>👥 الأعضاء:</strong><br><br>";
         snapshot.forEach(child => {
           const user = child.val();
-          const name = user.name || "مجهول";
-          const online = user.online;
-          const lastSeen = user.lastSeen || 0;
-
-          let line = `• ${name} `;
-          if (online) {
-            line += "🟢";
-          } else {
-            const diff = Date.now() - lastSeen;
-            const minutes = Math.floor(diff / 60000);
-            if (minutes < 1) line += "⭕ منذ لحظات";
-            else if (minutes < 60) line += `⭕ منذ ${minutes} دقيقة`;
-            else line += `⭕ منذ ${Math.floor(minutes / 60)} ساعة`;
+          if (user.name === name) {
+            userId = child.key;
+            found = true;
           }
-
-          list.innerHTML += `${line}<br>`;
-        });
-      });
-
-      db.ref("rooms/" + room + "/messages").push({
-        name: "🚪 النظام",
-        message: `📢 لقد انضم ${name}`,
-        time: new Date().toLocaleTimeString(),
-        system: true
-      });
-    }
-
-    function sendGift(toUser) {
-      const emoji = prompt("اختر هدية: 🌹 🎉 💎 🏆");
-      if (!giftPrices[emoji]) return alert("❌ هدية غير صحيحة");
-
-      const userPointsRef = db.ref(`rooms/${currentRoom}/users/${userId}/points`);
-      userPointsRef.once("value", snap => {
-        const currentPoints = snap.val() || 0;
-        const cost = giftPrices[emoji];
-        if (currentPoints < cost) return alert("❌ لا تملك نقاط كافية!");
-
-        userPointsRef.set(currentPoints - cost);
-
-        db.ref(`rooms/${currentRoom}/users`).once("value", snapshot => {
-          snapshot.forEach(child => {
-            const data = child.val();
-            if (data.name === toUser) {
-              const receiverRef = db.ref(`rooms/${currentRoom}/users/${child.key}/points`);
-              receiverRef.once("value", snap2 => {
-                const receiverPoints = snap2.val() || 0;
-                receiverRef.set(receiverPoints + cost);
-              });
-            }
-          });
         });
 
-        db.ref("rooms/" + currentRoom + "/messages").push({
-          name: "🎁 هدية",
-          message: `${currentUser} أرسل ${emoji} إلى ${toUser}`,
-          time: new Date().toLocaleTimeString(),
-          system: true
-        });
-      });
-    }
-
-    function addReaction(msgKey, emoji) {
-      const ref = db.ref(`rooms/${currentRoom}/messages/${msgKey}/reactions/${emoji}`);
-      ref.once("value", snapshot => {
-        const users = snapshot.val() || [];
-        if (users.includes(currentUser)) {
-          ref.set(users.filter(u => u !== currentUser));
-        } else {
-          ref.set([...users, currentUser]);
+        if (!found) {
+          userId = generateUUID();
         }
-      });
-    }
 
-    function showEmojiPicker(target, msgKey) {
-      let picker = document.createElement("div");
-      picker.className = "emoji-picker";
-      ["❤️", "😂", "👍", "👎", "😮", "😢"].forEach(e => {
-        let span = document.createElement("span");
-        span.textContent = e;
-        span.onclick = () => {
-          addReaction(msgKey, e);
-          document.body.removeChild(picker);
-        };
-        picker.appendChild(span);
-      });
-      document.body.appendChild(picker);
-      picker.style.left = target.getBoundingClientRect().left + "px";
-      picker.style.top = (target.getBoundingClientRect().top - 40) + "px";
-      picker.style.display = "block";
-    }
+        // حفظ الـ ID الجديد في localStorage عشان يفضل ثابت لو ممكن
+        try {
+          localStorage.setItem("userId", userId);
+        } catch (e) {}
 
-    function startCall() {
-      const room = document.getElementById("room").value.trim();
-      if (room) window.open("https://meet.jit.si/" + room, "_blank");
-    }
-
-    function startVoiceCall() {
-      const room = document.getElementById("room").value.trim();
-      if (room) window.open("https://meet.jit.si/" + room + "-voice", "_blank");
-    }
-
-    window.addEventListener('beforeunload', function () {
-      const roomCode = localStorage.getItem('roomCode');
-      const userName = localStorage.getItem('userName');
-      if (roomCode && userName && userRef) {
-        db.ref("rooms/" + roomCode + "/messages").push({
-          name: "🚪 النظام",
-          message: `🚪 لقد غادر ${userName}`,
-          time: new Date().toLocaleTimeString(),
-          system: true
+        userRef = db.ref(`rooms/${room}/users/${userId}`);
+        userRef.set({
+          name: name,
+          online: true,
+          lastSeen: Date.now(),
+          points: 0
         });
-        userRef.update({ online: false, lastSeen: firebase.database.ServerValue.TIMESTAMP });
-      }
-    });
+
+        userRef.onDisconnect().update({ online: false, lastSeen: firebase.database.ServerValue.TIMESTAMP });
+
+        // تخزين معلومات الدخول
+        localStorage.setItem("userName", name);
+        localStorage.setItem("roomCode", room);
+
+        alert("دخلت الروم بنجاح ✅");
+        // ممكن تكمّل هنا بكود عرض الرسائل أو غيره
+      });
+    }
   </script>
 </body>
 </html>
