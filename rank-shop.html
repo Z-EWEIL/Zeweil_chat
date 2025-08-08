@@ -21,13 +21,22 @@
       margin-bottom: 20px;
     }
     .rank-card {
-      background: #222;
+      background: linear-gradient(145deg, #1a1a1a, #222);
       border-radius: 10px;
       padding: 15px;
       margin: 10px;
       width: 300px;
       text-align: center;
       box-shadow: 0 0 10px #0f0;
+      transition: transform 0.2s ease;
+    }
+    .rank-card:hover {
+      transform: scale(1.05);
+    }
+    .rank-img {
+      width: 50px;
+      height: 50px;
+      margin-bottom: 10px;
     }
     .rank-name {
       font-size: 1.5em;
@@ -48,6 +57,9 @@
       cursor: pointer;
       transition: background-color 0.3s ease;
     }
+    button.buy-btn:hover:not(:disabled) {
+      background-color: #9f9;
+    }
     button.buy-btn:disabled {
       background-color: #555;
       cursor: not-allowed;
@@ -65,7 +77,6 @@
   <div id="ranksContainer"></div>
 
   <script>
-    // إعداد Firebase
     const firebaseConfig = {
       apiKey: "AIzaSyAlim9FOvDcMqTJWINoBCHk3k6DNXS-jTo",
       authDomain: "zeweil-chat.firebaseapp.com",
@@ -82,17 +93,18 @@
     let currentPoints = 0;
     let currentRank = null;
 
-    // تعريف الرتب وأسعارها
+    // رابط صور البادجات على GitHub
+    const baseImageUrl = "https://raw.githubusercontent.com/Z-EWEIL/Zeweil_chat/main/";
+
     const ranks = [
-      { id: "beginner", name: "مبتدئ", price: 100 },
-      { id: "intermediate", name: "متوسط", price: 250 },
-      { id: "expert", name: "خبير", price: 500 },
-      { id: "professional", name: "محترف", price: 1000 },
-      { id: "pro", name: "بروفشينال", price: 2000 },
-      { id: "Z", name: "رتبة Z (إدارية)", price: 9999999, adminOnly: true }
+      { id: "beginner", name: "مبتدئ", price: 100, img: "beginner.png" },
+      { id: "intermediate", name: "متوسط", price: 250, img: "intermediate.png" },
+      { id: "expert", name: "خبير", price: 500, img: "expert.png" },
+      { id: "professional", name: "محترف", price: 1000, img: "professional.png" },
+      { id: "pro", name: "بروفشينال", price: 2000, img: "pro.png" },
+      { id: "Z", name: "رتبة Z (إدارية)", price: 9999999, img: "Z.png", adminOnly: true }
     ];
 
-    // مصادقة المستخدم بشكل مجهول (أو استرجاع uid من التخزين المحلي)
     firebase.auth().onAuthStateChanged(user => {
       if (user) {
         userId = user.uid;
@@ -102,7 +114,6 @@
       }
     });
 
-    // تحميل بيانات المستخدم (نقاط ورتبة)
     function loadUserData() {
       db.ref(`users/${userId}`).once("value").then(snapshot => {
         const data = snapshot.val() || {};
@@ -113,38 +124,40 @@
       });
     }
 
-    // تحديث عرض الرصيد
     function updatePointsDisplay() {
       document.getElementById("pointsDisplay").textContent = `رصيدك: ${currentPoints} 🎯`;
     }
 
-    // رسم كروت الرتب
     function renderRanks() {
       const container = document.getElementById("ranksContainer");
       container.innerHTML = "";
 
       ranks.forEach(rank => {
-        // إذا رتبة خاصة بالإدارة لا تظهر هنا
         if (rank.adminOnly) return;
 
         const card = document.createElement("div");
         card.className = "rank-card";
 
         card.innerHTML = `
+          <img class="rank-img" src="${baseImageUrl + rank.img}" alt="${rank.name}">
           <div class="rank-name">${rank.name}</div>
           <div class="rank-price">${rank.price} نقاط</div>
-          <button class="buy-btn" ${currentRank === rank.id ? "disabled" : ""}>${currentRank === rank.id ? "تم الشراء" : "شراء"}</button>
+          <button class="buy-btn" ${currentRank === rank.id ? "disabled" : ""}>
+            ${currentRank === rank.id ? "تم الشراء" : "شراء"}
+          </button>
         `;
 
-        // زر الشراء
         const btn = card.querySelector(".buy-btn");
-        btn.onclick = () => buyRank(rank);
+        btn.onclick = () => {
+          if (confirm(`هل أنت متأكد من شراء رتبة ${rank.name}؟`)) {
+            buyRank(rank);
+          }
+        };
 
         container.appendChild(card);
       });
     }
 
-    // شراء رتبة
     function buyRank(rank) {
       if (currentRank === rank.id) {
         alert("❗ لديك هذه الرتبة بالفعل.");
@@ -155,7 +168,6 @@
         return;
       }
 
-      // خصم النقاط وتحديث الرتبة في قاعدة البيانات
       const updates = {};
       updates[`users/${userId}/points`] = currentPoints - rank.price;
       updates[`users/${userId}/rank`] = rank.id;
