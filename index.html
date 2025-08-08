@@ -61,12 +61,13 @@
 
     let currentRoom = "";
     let currentUser = "";
+    let userId = localStorage.getItem("savedUserId") || null;
     let userRef = null;
-    let userId = null;
 
     firebase.auth().onAuthStateChanged(user => {
       if (user) {
         userId = user.uid;
+        localStorage.setItem("savedUserId", userId);
       } else {
         firebase.auth().signInAnonymously().catch(error => {
           console.error("Auth error:", error.message);
@@ -103,14 +104,17 @@
       userRef = db.ref(`rooms/${room}/users/${userId}`);
       const now = Date.now();
 
-      userRef.once("value").then(snapshot => {
+      // تحديث بيانات المستخدم العامة
+      db.ref(`users/${userId}`).once("value").then(snapshot => {
         if (snapshot.exists()) {
-          userRef.update({ name: currentUser, online: true, lastSeen: now });
+          db.ref(`users/${userId}`).update({ name: currentUser });
         } else {
-          userRef.set({ name: currentUser, online: true, lastSeen: now, points: 0 });
+          db.ref(`users/${userId}`).set({ name: currentUser, points: 0 });
         }
       });
 
+      // إضافة المستخدم في الغرفة
+      userRef.set({ name: currentUser, online: true, lastSeen: now });
       userRef.onDisconnect().update({ online: false, lastSeen: firebase.database.ServerValue.TIMESTAMP });
 
       localStorage.setItem("roomCode", currentRoom);
@@ -165,10 +169,12 @@
         document.getElementById("chat-box").scrollTop = document.getElementById("chat-box").scrollHeight;
       });
 
-      db.ref(`rooms/${room}/users/${userId}/points`).on("value", snap => {
+      // متابعة رصيد النقاط من المسار العام
+      db.ref(`users/${userId}/points`).on("value", snap => {
         document.getElementById("pointsDisplay").textContent = `رصيدك: ${snap.val() || 0} 🎯`;
       });
 
+      // عرض قائمة الأعضاء في الغرفة
       db.ref(`rooms/${room}/users`).on("value", (snapshot) => {
         const list = document.getElementById("onlineList");
         list.innerHTML = "<strong>👥 الأعضاء:</strong><br><br>";
@@ -205,7 +211,7 @@
       const emoji = prompt("اختر هدية: 🌹 🎉 💎 🏆");
       if (!giftPrices[emoji]) return alert("❌ هدية غير صحيحة");
 
-      const userPointsRef = db.ref(`rooms/${currentRoom}/users/${userId}/points`);
+      const userPointsRef = db.ref(`users/${userId}/points`);
       userPointsRef.once("value", snap => {
         const currentPoints = snap.val() || 0;
         const cost = giftPrices[emoji];
@@ -213,11 +219,11 @@
 
         userPointsRef.set(currentPoints - cost);
 
-        db.ref(`rooms/${currentRoom}/users`).once("value", snapshot => {
+        db.ref("users").once("value", snapshot => {
           snapshot.forEach(child => {
             const data = child.val();
             if (data.name === toUser) {
-              const receiverRef = db.ref(`rooms/${currentRoom}/users/${child.key}/points`);
+              const receiverRef = db.ref(`users/${child.key}/points`);
               receiverRef.once("value", snap2 => {
                 const receiverPoints = snap2.val() || 0;
                 receiverRef.set(receiverPoints + cost);
