@@ -153,11 +153,39 @@
       margin-left: 5px;
       vertical-align: middle;
     }
+
+    /* زر متجر الرتب ثابت في أعلى اليمين */
+    #shopButton {
+      position: fixed;
+      top: 15px;
+      right: 15px;
+      background-color: #0f0;
+      color: black;
+      font-size: 24px;
+      padding: 10px 14px;
+      border-radius: 50%;
+      cursor: pointer;
+      box-shadow: 0 0 10px #0f0;
+      transition: background-color 0.3s ease, transform 0.2s ease;
+      z-index: 10000;
+      text-decoration: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    #shopButton:hover {
+      background-color: #0c0;
+      transform: scale(1.1);
+    }
   </style>
 </head>
 <body>
   <div id="onlineToggle">👥</div>
   <div id="onlineList"></div>
+
+  <!-- زر متجر الرتب -->
+  <a href="https://zeweil-chat.vercel.app/rank-shop.html" id="shopButton" title="متجر الرتب">🛒</a>
+
   <h2>🔐 دردشة ZEWEIL الخاصة</h2>
   <input type="text" id="room" placeholder="🛡️ كود الغرفة" />
   <input type="text" id="username" placeholder="🡩‍💬 اسمك" />
