@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+  <meta charset="UTF-8" />
+  <title>متجر الرتب - ZEWEIL Chat</title>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+  <style>
+    body {
+      background-color: #111;
+      color: white;
+      font-family: Tahoma, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 20px;
+    }
+    h2 {
+      color: #0f0;
+      margin-bottom: 20px;
+    }
+    .rank-card {
+      background: #222;
+      border-radius: 10px;
+      padding: 15px;
+      margin: 10px;
+      width: 300px;
+      text-align: center;
+      box-shadow: 0 0 10px #0f0;
+    }
+    .rank-name {
+      font-size: 1.5em;
+      margin-bottom: 10px;
+    }
+    .rank-price {
+      font-size: 1.2em;
+      margin-bottom: 15px;
+      color: #afa;
+    }
+    button.buy-btn {
+      background-color: #0f0;
+      border: none;
+      padding: 10px 20px;
+      color: black;
+      font-weight: bold;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: background-color 0.3s ease;
+    }
+    button.buy-btn:disabled {
+      background-color: #555;
+      cursor: not-allowed;
+    }
+    #pointsDisplay {
+      margin-bottom: 20px;
+      font-size: 1.2em;
+      color: #afa;
+    }
+  </style>
+</head>
+<body>
+  <h2>🎖️ متجر الرتب - ZEWEIL Chat</h2>
+  <div id="pointsDisplay">رصيدك: 0 🎯</div>
+  <div id="ranksContainer"></div>
+
+  <script>
+    // إعداد Firebase
+    const firebaseConfig = {
+      apiKey: "AIzaSyAlim9FOvDcMqTJWINoBCHk3k6DNXS-jTo",
+      authDomain: "zeweil-chat.firebaseapp.com",
+      databaseURL: "https://zeweil-chat-default-rtdb.europe-west1.firebasedatabase.app",
+      projectId: "zeweil-chat",
+      storageBucket: "zeweil-chat.appspot.com",
+      messagingSenderId: "79843372176",
+      appId: "1:79843372176:web:ea511efffae60c2a6cfc15"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+
+    let userId = null;
+    let currentPoints = 0;
+    let currentRank = null;
+
+    // تعريف الرتب وأسعارها
+    const ranks = [
+      { id: "beginner", name: "مبتدئ", price: 100 },
+      { id: "intermediate", name: "متوسط", price: 250 },
+      { id: "expert", name: "خبير", price: 500 },
+      { id: "professional", name: "محترف", price: 1000 },
+      { id: "pro", name: "بروفشينال", price: 2000 },
+      { id: "Z", name: "رتبة Z (إدارية)", price: 9999999, adminOnly: true }
+    ];
+
+    // مصادقة المستخدم بشكل مجهول (أو استرجاع uid من التخزين المحلي)
+    firebase.auth().onAuthStateChanged(user => {
+      if (user) {
+        userId = user.uid;
+        loadUserData();
+      } else {
+        firebase.auth().signInAnonymously().catch(console.error);
+      }
+    });
+
+    // تحميل بيانات المستخدم (نقاط ورتبة)
+    function loadUserData() {
+      db.ref(`users/${userId}`).once("value").then(snapshot => {
+        const data = snapshot.val() || {};
+        currentPoints = data.points || 0;
+        currentRank = data.rank || null;
+        updatePointsDisplay();
+        renderRanks();
+      });
+    }
+
+    // تحديث عرض الرصيد
+    function updatePointsDisplay() {
+      document.getElementById("pointsDisplay").textContent = `رصيدك: ${currentPoints} 🎯`;
+    }
+
+    // رسم كروت الرتب
+    function renderRanks() {
+      const container = document.getElementById("ranksContainer");
+      container.innerHTML = "";
+
+      ranks.forEach(rank => {
+        // إذا رتبة خاصة بالإدارة لا تظهر هنا
+        if (rank.adminOnly) return;
+
+        const card = document.createElement("div");
+        card.className = "rank-card";
+
+        card.innerHTML = `
+          <div class="rank-name">${rank.name}</div>
+          <div class="rank-price">${rank.price} نقاط</div>
+          <button class="buy-btn" ${currentRank === rank.id ? "disabled" : ""}>${currentRank === rank.id ? "تم الشراء" : "شراء"}</button>
+        `;
+
+        // زر الشراء
+        const btn = card.querySelector(".buy-btn");
+        btn.onclick = () => buyRank(rank);
+
+        container.appendChild(card);
+      });
+    }
+
+    // شراء رتبة
+    function buyRank(rank) {
+      if (currentRank === rank.id) {
+        alert("❗ لديك هذه الرتبة بالفعل.");
+        return;
+      }
+      if (currentPoints < rank.price) {
+        alert("❌ لا تملك نقاط كافية.");
+        return;
+      }
+
+      // خصم النقاط وتحديث الرتبة في قاعدة البيانات
+      const updates = {};
+      updates[`users/${userId}/points`] = currentPoints - rank.price;
+      updates[`users/${userId}/rank`] = rank.id;
+
+      db.ref().update(updates).then(() => {
+        alert(`✅ تم شراء رتبة ${rank.name} بنجاح!`);
+        currentPoints -= rank.price;
+        currentRank = rank.id;
+        updatePointsDisplay();
+        renderRanks();
+      }).catch(err => {
+        console.error(err);
+        alert("حدث خطأ أثناء الشراء.");
+      });
+    }
+  </script>
+</body>
+</html>
