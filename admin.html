@@ -1,6 +1,7 @@
-<!DOCTYPE html><html lang="ar">
+<!DOCTYPE html>
+<html lang="ar">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8" />
   <title>لوحة المشرف - ZEWEIL Chat</title>
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
@@ -18,10 +19,10 @@
 <body>
   <h2>🛡️ لوحة المشرف - ZEWEIL Chat</h2>
   <div id="login">
-    <input type="password" id="adminPass" placeholder="🔐 كلمة سر المشرف">
+    <input type="password" id="adminPass" placeholder="🔐 كلمة سر المشرف" />
     <button onclick="verifyPassword()">دخول</button>
-  </div>  <div id="adminPanel" style="display:none;">
-    <input type="text" id="roomCode" placeholder="🏷️ كود الغرفة">
+  </div>
+  <div id="adminPanel" style="display:none;">
     <button onclick="loadUsers()">📥 تحميل المستخدمين</button>
     <table>
       <thead>
@@ -30,37 +31,38 @@
           <th>الاسم</th>
           <th>النقاط</th>
           <th>تعديل النقاط</th>
-          <th>طرد</th>
+          <th>حذف المستخدم</th>
         </tr>
       </thead>
       <tbody id="userTable"></tbody>
     </table>
-  </div>  <script>
+  </div>
+
+  <script>
     const firebaseConfig = {
       databaseURL: "https://zeweil-chat-default-rtdb.europe-west1.firebasedatabase.app/"
     };
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
 
-    const correctPassword = "zeweil123"; // ✳️ غيرها لاحقًا بكلمة سر قوية
+    const correctPassword = "zeweil123"; // غيّرها لكلمة سر قوية خاصة بك
 
     function verifyPassword() {
       const pass = document.getElementById("adminPass").value;
       if (pass === correctPassword) {
         document.getElementById("login").style.display = "none";
         document.getElementById("adminPanel").style.display = "block";
+        loadUsers();
       } else {
         alert("❌ كلمة السر غير صحيحة!");
       }
     }
 
     function loadUsers() {
-      const room = document.getElementById("roomCode").value.trim();
-      if (!room) return alert("يرجى إدخال كود الغرفة");
       const table = document.getElementById("userTable");
       table.innerHTML = "";
 
-      db.ref(`rooms/${room}/users`).once("value", snapshot => {
+      db.ref("users").once("value", snapshot => {
         snapshot.forEach(child => {
           const user = child.val();
           const key = child.key;
@@ -71,34 +73,31 @@
             <td>${user.name || "مجهول"}</td>
             <td>${user.points || 0}</td>
             <td>
-              <input type="number" id="pts-${key}" value="${user.points || 0}">
-              <button onclick="updatePoints('${room}', '${key}')">💾</button>
+              <input type="number" id="pts-${key}" value="${user.points || 0}" min="0" />
+              <button onclick="updatePoints('${key}')">💾</button>
             </td>
-            <td><button onclick="kickUser('${room}', '${key}', '${user.name || 'مجهول'}')">🚫</button></td>
+            <td><button onclick="deleteUser('${key}', '${user.name || 'مجهول'}')">🗑️</button></td>
           `;
           table.appendChild(row);
         });
       });
     }
 
-    function updatePoints(room, uid) {
+    function updatePoints(uid) {
       const val = parseInt(document.getElementById(`pts-${uid}`).value);
-      if (isNaN(val)) return alert("❌ قيمة غير صالحة");
-      db.ref(`rooms/${room}/users/${uid}/points`).set(val);
-      alert("✅ تم تحديث النقاط");
+      if (isNaN(val) || val < 0) return alert("❌ قيمة غير صالحة");
+      db.ref(`users/${uid}/points`).set(val)
+        .then(() => alert("✅ تم تحديث النقاط بنجاح"))
+        .catch(() => alert("❌ حدث خطأ أثناء تحديث النقاط"));
     }
 
-    function kickUser(room, uid, name) {
-      if (confirm(`هل تريد طرد المستخدم ${name}؟`)) {
-        db.ref(`rooms/${room}/users/${uid}`).update({ online: false, kicked: true });
-        db.ref(`rooms/${room}/messages`).push({
-          name: "🚪 النظام",
-          message: `🚫 تم طرد ${name} من الغرفة`,
-          time: new Date().toLocaleTimeString(),
-          system: true
-        });
-        alert("🚫 تم طرد المستخدم");
+    function deleteUser(uid, name) {
+      if (confirm(`هل تريد حذف المستخدم ${name}؟`)) {
+        db.ref(`users/${uid}`).remove()
+          .then(() => alert("✅ تم حذف المستخدم"))
+          .catch(() => alert("❌ حدث خطأ أثناء حذف المستخدم"));
       }
     }
-  </script></body>
+  </script>
+</body>
 </html>
