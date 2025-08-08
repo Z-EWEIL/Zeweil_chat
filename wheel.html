@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+<meta charset="UTF-8" />
+<title>عجلة الحظ - ZEWEIL Chat</title>
+<style>
+  body {
+    background: #111;
+    color: white;
+    font-family: Tahoma, sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 20px;
+  }
+  h2 {
+    color: #0f0;
+  }
+  #wheelCanvas {
+    border: 5px solid #0f0;
+    border-radius: 50%;
+    margin-top: 20px;
+    background: #222;
+  }
+  #spinBtn {
+    margin-top: 20px;
+    padding: 10px 30px;
+    font-size: 18px;
+    background: #0f0;
+    color: #000;
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+  }
+  #result {
+    margin-top: 20px;
+    font-size: 22px;
+    color: #0f0;
+    min-height: 40px;
+  }
+  input, button {
+    margin: 8px;
+    padding: 8px 12px;
+    border-radius: 6px;
+    border: none;
+    font-size: 16px;
+  }
+  #controls {
+    margin-bottom: 10px;
+  }
+</style>
+</head>
+<body>
+
+<h2>🎉 عجلة الحظ - مسابقة أعضاء الغرفة 🎉</h2>
+
+<div id="controls">
+  <input type="text" id="roomInput" placeholder="أدخل كود الغرفة" />
+  <input type="number" id="pointsInput" placeholder="نقاط الجائزة" min="1" />
+  <button onclick="loadUsers()">تحميل الأعضاء</button>
+</div>
+
+<canvas id="wheelCanvas" width="500" height="500"></canvas>
+
+<button id="spinBtn" disabled onclick="spinWheel()">لف العجلة</button>
+
+<div id="result"></div>
+
+<!-- Firebase -->
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+
+<script>
+  // تكوين Firebase متوافق مع مشروعك:
+  const firebaseConfig = {
+    apiKey: "AIzaSyAlim9FOvDcMqTJWINoBCHk3k6DNXS-jTo",
+    authDomain: "zeweil-chat.firebaseapp.com",
+    databaseURL: "https://zeweil-chat-default-rtdb.europe-west1.firebasedatabase.app",
+    projectId: "zeweil-chat",
+    storageBucket: "zeweil-chat.appspot.com",
+    messagingSenderId: "79843372176",
+    appId: "1:79843372176:web:ea511efffae60c2a6cfc15"
+  };
+  firebase.initializeApp(firebaseConfig);
+  const db = firebase.database();
+
+  const canvas = document.getElementById('wheelCanvas');
+  const ctx = canvas.getContext('2d');
+  const spinBtn = document.getElementById('spinBtn');
+  const resultDiv = document.getElementById('result');
+
+  let users = []; // array of {userId, name}
+  let segments = []; // نصوص الأسماء
+  let colors = [];
+  let startAngle = 0;
+  let arc = 0;
+  let spinTimeout = null;
+  let spinArcStart = 0;
+  let spinTime = 0;
+  let spinTimeTotal = 0;
+  let isSpinning = false;
+
+  // ألوان متغيرة للعجلة
+  function generateColors(n) {
+    let baseColors = [
+      '#4CAF50', '#2196F3', '#FFC107', '#E91E63', '#9C27B0', '#FF5722',
+      '#3F51B5', '#00BCD4', '#8BC34A', '#FF9800', '#795548', '#607D8B'
+    ];
+    let arr = [];
+    for(let i=0; i<n; i++) {
+      arr.push(baseColors[i % baseColors.length]);
+    }
+    return arr;
+  }
+
+  function drawWheel() {
+    if (users.length === 0) {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = '#fff';
+      ctx.font = '20px Tahoma';
+      ctx.textAlign = 'center';
+      ctx.fillText('لا يوجد أعضاء', canvas.width/2, canvas.height/2);
+      return;
+    }
+
+    const outsideRadius = 200;
+    const textRadius = 150;
+    const insideRadius = 50;
+
+    arc = Math.PI * 2 / users.length;
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.strokeStyle = "#0f0";
+    ctx.lineWidth = 3;
+    ctx.font = '16px Tahoma';
+
+    for(let i = 0; i < users.length; i++) {
+      let angle = startAngle + i * arc;
+      ctx.fillStyle = colors[i];
+
+      ctx.beginPath();
+      ctx.moveTo(canvas.width/2, canvas.height/2);
+      ctx.arc(canvas.width/2, canvas.height/2, outsideRadius, angle, angle + arc, false);
+      ctx.lineTo(canvas.width/2, canvas.height/2);
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.save();
+      ctx.fillStyle = "white";
+      ctx.translate(
+        canvas.width/2 + Math.cos(angle + arc / 2) * textRadius,
+        canvas.height/2 + Math.sin(angle + arc / 2) * textRadius
+      );
+      ctx.rotate(angle + arc / 2 + Math.PI / 2);
+      let text = users[i].name;
+      ctx.fillText(text, 0, 0);
+      ctx.restore();
+    }
+
+    // السهم في الأعلى
+    ctx.fillStyle = "#0f0";
+    ctx.beginPath();
+    ctx.moveTo(canvas.width/2 - 10, canvas.height/2 - (outsideRadius + 20));
+    ctx.lineTo(canvas.width/2 + 10, canvas.height/2 - (outsideRadius + 20));
+    ctx.lineTo(canvas.width/2, canvas.height/2 - (outsideRadius + 5));
+    ctx.closePath();
+    ctx.fill();
+  }
+
+  function rotateWheel() {
+    spinTime += 30;
+    if(spinTime >= spinTimeTotal) {
+      stopRotateWheel();
+      return;
+    }
+    let spinAngle = spinArcStart - easeOut(spinTime, 0, spinArcStart, spinTimeTotal);
+    startAngle += (spinAngle * Math.PI / 180);
+    drawWheel();
+    spinTimeout = setTimeout(rotateWheel, 30);
+  }
+
+  function stopRotateWheel() {
+    clearTimeout(spinTimeout);
+    const degrees = startAngle * 180 / Math.PI + 90;
+    const arcd = arc * 180 / Math.PI;
+    let index = Math.floor((360 - (degrees % 360)) / arcd);
+    if(index >= users.length) index = index % users.length;
+
+    const winner = users[index];
+    resultDiv.textContent = `🏆 الفائز: ${winner.name} 🏆`;
+
+    // إضافة النقاط للفائز في المسار العام users/<userId>/points
+    const points = parseInt(document.getElementById('pointsInput').value);
+    if(points > 0){
+      const userPointsRef = db.ref(`users/${winner.userId}/points`);
+      userPointsRef.transaction(currentPoints => {
+        return (currentPoints || 0) + points;
+      }).then(() => {
+        alert(`تم إضافة ${points} نقطة إلى ${winner.name}`);
+      }).catch(err => {
+        alert('خطأ أثناء تحديث النقاط: ' + err.message);
+      });
+    }
+
+    isSpinning = false;
+    spinBtn.disabled = false;
+  }
+
+  function easeOut(t, b, c, d) {
+    t /= d;
+    t--;
+    return c*(t*t*t + 1) + b;
+  }
+
+  function spinWheel() {
+    if (isSpinning) return;
+    isSpinning = true;
+    spinBtn.disabled = true;
+    resultDiv.textContent = '';
+    spinArcStart = Math.floor(5000 + Math.random() * 5000);
+    spinTime = 0;
+    spinTimeTotal = 4000 + Math.random() * 3000;
+    rotateWheel();
+  }
+
+  // تحميل الأعضاء من قاعدة البيانات
+  function loadUsers() {
+    const roomCode = document.getElementById('roomInput').value.trim();
+    if(!roomCode){
+      alert('من فضلك أدخل كود الغرفة');
+      return;
+    }
+    resultDiv.textContent = '';
+    spinBtn.disabled = true;
+    users = [];
+    colors = [];
+
+    db.ref(`rooms/${roomCode}/users`).once('value')
+      .then(snapshot => {
+        snapshot.forEach(childSnap => {
+          const user = childSnap.val();
+          if(user.name) {
+            users.push({userId: childSnap.key, name: user.name});
+          }
+        });
+
+        if(users.length === 0) {
+          alert('لا يوجد أعضاء في هذه الغرفة');
+          drawWheel();
+          return;
+        }
+
+        colors = generateColors(users.length);
+        startAngle = 0;
+        drawWheel();
+        spinBtn.disabled = false;
+      }).catch(err => {
+        alert('خطأ في تحميل الأعضاء: ' + err.message);
+      });
+  }
+
+  // رسم العجلة في البداية فارغة
+  drawWheel();
+</script>
+
+</body>
+  </html>
