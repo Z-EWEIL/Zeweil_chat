@@ -14,6 +14,12 @@
     th, td { border: 1px solid #333; padding: 10px; text-align: center; }
     th { background: #222; }
     td input, td select { width: 80px; text-align: center; }
+    img.rank-icon {
+      width: 40px;
+      height: 40px;
+      vertical-align: middle;
+      margin-left: 5px;
+    }
   </style>
 </head>
 <body>
@@ -50,7 +56,22 @@
 
     const correctPassword = "zeweil123"; // غيّرها لكلمة سر قوية خاصة بك
 
-    const ranks = ["beginner", "advanced", "moderator", "admin"]; // الرتب المتاحة
+    // الرتب المتاحة بالإنجليزي مع اسم عربي مقابل
+    const ranks = [
+      {en: "beginner", ar: "مبتدئ"},
+      {en: "intermediate", ar: "متوسط"},
+      {en: "expert", ar: "خبير"},
+      {en: "professional", ar: "محترف"},
+      {en: "pro", ar: "محترف متمرس"},
+      {en: "z", ar: "زويل"}
+    ];
+
+    function getRankImg(rank) {
+      if (!rank) return "";
+      const baseRaw = "https://raw.githubusercontent.com/Z-EWEIL/Zeweil_chat/main/";
+      const filename = `${rank}.png`;
+      return `<img src="${baseRaw}${filename}" alt="${rank}" class="rank-icon" />`;
+    }
 
     function verifyPassword() {
       const pass = document.getElementById("adminPass").value;
@@ -73,6 +94,7 @@
           const key = child.key;
 
           const currentRank = user.rank || "beginner";
+          const rankObj = ranks.find(r => r.en === currentRank) || ranks[0];
 
           const row = document.createElement("tr");
           row.innerHTML = `
@@ -82,11 +104,13 @@
             <td>
               <input type="number" id="pts-${key}" value="${user.points || 0}" min="0" />
             </td>
-            <td id="rankDisplay-${key}">${currentRank}</td>
+            <td id="rankDisplay-${key}">
+              ${rankObj.ar} ${getRankImg(rankObj.en)}
+            </td>
             <td>
               <select id="rankSelect-${key}">
                 ${ranks.map(rank => 
-                  `<option value="${rank}" ${rank === currentRank ? "selected" : ""}>${rank}</option>`
+                  `<option value="${rank.en}" ${rank.en === currentRank ? "selected" : ""}>${rank.ar}</option>`
                 ).join("")}
               </select>
             </td>
@@ -111,14 +135,15 @@
         return;
       }
 
-      // تحديث النقاط والرتبة معًا
       const updates = {};
       updates[`users/${uid}/points`] = newPoints;
       updates[`users/${uid}/rank`] = newRank;
 
       db.ref().update(updates)
         .then(() => {
-          document.getElementById(`rankDisplay-${uid}`).textContent = newRank;
+          // تحديث عرض الرتبة مع الصورة بعد الحفظ
+          const rankObj = ranks.find(r => r.en === newRank) || ranks[0];
+          document.getElementById(`rankDisplay-${uid}`).innerHTML = `${rankObj.ar} ${getRankImg(rankObj.en)}`;
           alert("✅ تم تحديث النقاط والرتبة بنجاح");
         })
         .catch(() => alert("❌ حدث خطأ أثناء التحديث"));
