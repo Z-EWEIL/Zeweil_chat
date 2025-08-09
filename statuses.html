@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+  <meta charset="UTF-8" />
+  <title>حالات ZEWEIL Chat</title>
+  <style>
+    body {
+      background-color: #111;
+      color: white;
+      font-family: Tahoma, sans-serif;
+      padding: 20px;
+      direction: rtl;
+    }
+    h2 {
+      color: #0f0;
+      margin-bottom: 20px;
+      text-align: center;
+    }
+    #addStatusSection {
+      margin-bottom: 20px;
+      display: flex;
+      gap: 10px;
+      justify-content: center;
+      align-items: center;
+    }
+    #fileInput {
+      color: white;
+    }
+    #uploadBtn {
+      background-color: #0f0;
+      color: black;
+      border: none;
+      padding: 10px 15px;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+    #statusesContainer {
+      display: flex;
+      gap: 15px;
+      overflow-x: auto;
+      padding-bottom: 10px;
+    }
+    .status-item {
+      width: 70px;
+      height: 70px;
+      border-radius: 50%;
+      overflow: hidden;
+      cursor: pointer;
+      border: 2px solid #0f0;
+      flex-shrink: 0;
+      position: relative;
+    }
+    .status-item img, .status-item video {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    /* النافذة الكاملة لعرض الحالة */
+    #viewerModal {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background-color: rgba(0,0,0,0.95);
+      display: none;
+      justify-content: center;
+      align-items: center;
+      z-index: 10000;
+      flex-direction: column;
+      color: white;
+      padding: 10px;
+    }
+    #viewerContent {
+      max-width: 90vw;
+      max-height: 80vh;
+      border-radius: 10px;
+      position: relative;
+    }
+    #viewerContent img, #viewerContent video {
+      width: 100%;
+      height: 100%;
+      border-radius: 10px;
+      object-fit: contain;
+      background-color: black;
+    }
+    #statusUploaderName {
+      margin-top: 10px;
+      font-weight: bold;
+      font-size: 1.1em;
+      text-align: center;
+    }
+    #viewedByList {
+      margin-top: 10px;
+      max-height: 150px;
+      overflow-y: auto;
+      background: #222;
+      border-radius: 5px;
+      padding: 10px;
+      width: 100%;
+      max-width: 600px;
+    }
+    #viewedByList strong {
+      display: block;
+      margin-bottom: 5px;
+    }
+    #viewers div {
+      margin-bottom: 3px;
+    }
+
+    #closeViewer, #prevStatus, #nextStatus {
+      margin: 10px 5px 0 5px;
+      background-color: #0f0;
+      color: black;
+      border: none;
+      padding: 8px 15px;
+      border-radius: 5px;
+      cursor: pointer;
+      font-weight: bold;
+      user-select: none;
+    }
+    #navButtons {
+      margin-top: 10px;
+      display: flex;
+      justify-content: center;
+      gap: 15px;
+      width: 100%;
+      max-width: 600px;
+    }
+  </style>
+</head>
+<body>
+
+<h2>حالات ZEWEIL Chat</h2>
+
+<div id="addStatusSection">
+  <input type="file" id="fileInput" accept="image/*,video/*" />
+  <button id="uploadBtn">➕ أضف حالة</button>
+</div>
+
+<div id="statusesContainer">
+  <!-- تظهر الحالات هنا -->
+</div>
+
+<!-- نافذة عرض الحالة -->
+<div id="viewerModal">
+  <div id="viewerContent"></div>
+  <div id="statusUploaderName"></div>
+
+  <div id="navButtons">
+    <button id="prevStatus">‹ السابق</button>
+    <button id="closeViewer">إغلاق</button>
+    <button id="nextStatus">التالي ›</button>
+  </div>
+
+  <div id="viewedByList">
+    <strong>شاهدوا الحالة:</strong>
+    <div id="viewers"></div>
+  </div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-storage.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+<script>
+  const firebaseConfig = {
+    apiKey: "AIzaSyAlim9FOvDcMqTJWINoBCHk3k6DNXS-jTo",
+    authDomain: "zeweil-chat.firebaseapp.com",
+    databaseURL: "https://zeweil-chat-default-rtdb.europe-west1.firebasedatabase.app",
+    projectId: "zeweil-chat",
+    storageBucket: "zeweil-chat.appspot.com",
+    messagingSenderId: "79843372176",
+    appId: "1:79843372176:web:ea511efffae60c2a6cfc15"
+  };
+  firebase.initializeApp(firebaseConfig);
+
+  const db = firebase.database();
+  const storage = firebase.storage();
+
+  let currentUser = localStorage.getItem("userName") || prompt("اكتب اسمك للدخول:");
+  firebase.auth().signInAnonymously().catch(console.error);
+
+  document.getElementById("uploadBtn").onclick = async () => {
+    const fileInput = document.getElementById("fileInput");
+    if (fileInput.files.length === 0) {
+      alert("اختر صورة أو فيديو أولاً");
+      return;
+    }
+    const file = fileInput.files[0];
+    const ext = file.name.split('.').pop().toLowerCase();
+    if (!["jpg", "jpeg", "png", "gif", "mp4", "mov", "webm"].includes(ext)) {
+      alert("نوع الملف غير مدعوم");
+      return;
+    }
+    const statusId = Date.now();
+    const filePath = `statuses/${currentUser}/${statusId}_${file.name}`;
+    const uploadTask = storage.ref(filePath).put(file);
+    uploadTask.on('state_changed',
+      snapshot => {},
+      error => { alert("حدث خطأ في رفع الملف"); console.error(error); },
+      async () => {
+        const url = await uploadTask.snapshot.ref.getDownloadURL();
+        db.ref(`statuses/${currentUser}/${statusId}`).set({
+          fileURL: url,
+          timestamp: Date.now(),
+          type: file.type.startsWith("video") ? "video" : "image",
+          viewers: {}
+        });
+        alert("تم إضافة الحالة بنجاح");
+        fileInput.value = "";
+        loadStatuses();
+      });
+  };
+
+  const statusesContainer = document.getElementById("statusesContainer");
+
+  // تخزين كل الحالات كلها في مصفوفة للوصول السريع والتنقل
+  let allStatuses = [];
+  // الحالة الحالية للعرض (index)
+  let currentStatusIndex = 0;
+
+  function loadStatuses() {
+    statusesContainer.innerHTML = "";
+    allStatuses = [];
+
+    db.ref("statuses").once("value").then(snapshot => {
+      snapshot.forEach(userSnap => {
+        const userName = userSnap.key;
+        const userStatuses = userSnap.val();
+
+        // لكل حالة عند المستخدم، نضيفها كلها للقائمة
+        Object.entries(userStatuses).forEach(([statusKey, status]) => {
+          allStatuses.push({
+            userName,
+            statusKey,
+            ...status
+          });
+        });
+      });
+
+      // نرتب الحالات حسب الوقت من الأحدث للأقدم
+      allStatuses.sort((a, b) => b.timestamp - a.timestamp);
+
+      // نعرض فقط آخر حالة لكل مستخدم في القائمة الرئيسية
+      let latestByUser = {};
+      allStatuses.forEach(s => {
+        if (!latestByUser[s.userName] || latestByUser[s.userName].timestamp < s.timestamp) {
+          latestByUser[s.userName] = s;
+        }
+      });
+
+      // نعرض الحالات في الواجهة
+      for (const userName in latestByUser) {
+        const status = latestByUser[userName];
+        const div = document.createElement("div");
+        div.className = "status-item";
+
+        if (status.type === "video") {
+          const video = document.createElement("video");
+          video.src = status.fileURL;
+          video.muted = true;
+          video.loop = true;
+          video.autoplay = true;
+          div.appendChild(video);
+        } else {
+          const img = document.createElement("img");
+          img.src = status.fileURL;
+          div.appendChild(img);
+        }
+
+        div.title = `حالة ${userName}`;
+        div.onclick = () => openViewerByUser(userName);
+
+        statusesContainer.appendChild(div);
+      }
+    });
+  }
+
+  // لفتح نافذة العرض بحالات المستخدم كلها والبدء بأول حالة عنده
+  function openViewerByUser(userName) {
+    // نجيب كل حالات هذا المستخدم
+    const userStatuses = allStatuses.filter(s => s.userName === userName);
+    if (userStatuses.length === 0) return;
+
+    // تحديث قائمة الحالات المعروضة للعرض فقط حالات هذا المستخدم
+    viewingStatuses = userStatuses.sort((a,b) => a.timestamp - b.timestamp);
+    currentStatusIndex = 0;
+
+    showStatusAtIndex();
+    viewerModal.style.display = "flex";
+  }
+
+  let viewingStatuses = []; // الحالات التي تعرض حالياً (لمستخدم واحد)
+
+  async function showStatusAtIndex() {
+    const status = viewingStatuses[currentStatusIndex];
+    if (!status) return;
+
+    viewerContent.innerHTML = "";
+    viewersDiv.innerHTML = "";
+
+    // عرض الصورة أو الفيديو
+    if (status.type === "video") {
+      const video = document.createElement("video");
+      video.src = status.fileURL;
+      video.controls = true;
+      video.autoplay = true;
+      viewerContent.appendChild(video);
+    } else {
+      const img = document.createElement("img");
+      img.src = status.fileURL;
+      viewerContent.appendChild(img);
+    }
+
+    statusUploaderName.textContent = `الحالة من: ${status.userName} (${currentStatusIndex + 1} / ${viewingStatuses.length})`;
+
+    // تسجيل المشاهدة
+    db.ref(`statuses/${status.userName}/${status.statusKey}/viewers/${currentUser}`).set({
+      name: currentUser,
+      timestamp: Date.now()
+    });
+
+    // جلب المشاهدين وعرضهم
+    const viewersSnap = await db.ref(`statuses/${status.userName}/${status.statusKey}/viewers`).once("value");
+    const viewers = viewersSnap.val() || {};
+    for (const viewer in viewers) {
+      const view = viewers[viewer];
+      const time = new Date(view.timestamp).toLocaleString("ar-EG");
+      const div = document.createElement("div");
+      div.textContent = `${viewer} — ${time}`;
+      viewersDiv.appendChild(div);
+    }
+  }
+
+  document.getElementById("closeViewer").onclick = () => {
+    viewerModal.style.display = "none";
+    viewerContent.innerHTML = "";
+    viewersDiv.innerHTML = "";
+    viewingStatuses = [];
+  };
+
+  document.getElementById("prevStatus").onclick = () => {
+    if (currentStatusIndex > 0) {
+      currentStatusIndex--;
+      showStatusAtIndex();
+    }
+  };
+
+  document.getElementById("nextStatus").onclick = () => {
+    if (currentStatusIndex < viewingStatuses.length - 1) {
+      currentStatusIndex++;
+      showStatusAtIndex();
+    }
+  };
+
+  const viewerModal = document.getElementById("viewerModal");
+  const viewerContent = document.getElementById("viewerContent");
+  const statusUploaderName = document.getElementById("statusUploaderName");
+  const viewersDiv = document.getElementById("viewers");
+
+  loadStatuses();
+</script>
+
+</body>
+</html>
