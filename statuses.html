@@ -4,23 +4,124 @@
   <meta charset="UTF-8" />
   <title>حالات ZEWEIL Chat</title>
   <style>
-    body { background-color: #111; color: white; font-family: Tahoma, sans-serif; padding: 20px; direction: rtl; }
-    h2 { color: #0f0; margin-bottom: 20px; text-align: center; }
-    #addStatusSection { margin-bottom: 20px; display: flex; gap: 10px; justify-content: center; align-items: center; }
-    #fileInput { color: white; }
-    #uploadBtn { background-color: #0f0; color: black; border: none; padding: 10px 15px; border-radius: 5px; cursor: pointer; }
-    #statusesContainer { display: flex; gap: 15px; overflow-x: auto; padding-bottom: 10px; }
-    .status-item { width: 70px; height: 70px; border-radius: 50%; overflow: hidden; cursor: pointer; border: 2px solid #0f0; flex-shrink: 0; }
-    .status-item img, .status-item video { width: 100%; height: 100%; object-fit: cover; }
-    #viewerModal { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background-color: rgba(0,0,0,0.95); display: none; justify-content: center; align-items: center; z-index: 10000; flex-direction: column; color: white; padding: 10px; }
-    #viewerContent { max-width: 90vw; max-height: 80vh; border-radius: 10px; position: relative; }
-    #viewerContent img, #viewerContent video { width: 100%; height: 100%; border-radius: 10px; object-fit: contain; background-color: black; }
-    #statusUploaderName { margin-top: 10px; font-weight: bold; font-size: 1.1em; text-align: center; }
-    #viewedByList { margin-top: 10px; max-height: 150px; overflow-y: auto; background: #222; border-radius: 5px; padding: 10px; width: 100%; max-width: 600px; }
-    #viewedByList strong { display: block; margin-bottom: 5px; }
-    #viewers div { margin-bottom: 3px; }
-    #closeViewer, #prevStatus, #nextStatus { margin: 10px 5px 0 5px; background-color: #0f0; color: black; border: none; padding: 8px 15px; border-radius: 5px; cursor: pointer; font-weight: bold; }
-    #navButtons { margin-top: 10px; display: flex; justify-content: center; gap: 15px; width: 100%; max-width: 600px; }
+    body {
+      background-color: #111;
+      color: white;
+      font-family: Tahoma, sans-serif;
+      padding: 20px;
+      direction: rtl;
+    }
+    h2 {
+      color: #0f0;
+      margin-bottom: 20px;
+      text-align: center;
+    }
+    #addStatusSection {
+      margin-bottom: 20px;
+      display: flex;
+      gap: 10px;
+      justify-content: center;
+      align-items: center;
+    }
+    #fileInput {
+      color: white;
+    }
+    #uploadBtn {
+      background-color: #0f0;
+      color: black;
+      border: none;
+      padding: 10px 15px;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+    #statusesContainer {
+      display: flex;
+      gap: 15px;
+      overflow-x: auto;
+      padding-bottom: 10px;
+    }
+    .status-item {
+      width: 70px;
+      height: 70px;
+      border-radius: 50%;
+      overflow: hidden;
+      cursor: pointer;
+      border: 2px solid #0f0;
+      flex-shrink: 0;
+      position: relative;
+    }
+    .status-item img, .status-item video {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    #viewerModal {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background-color: rgba(0,0,0,0.95);
+      display: none;
+      justify-content: center;
+      align-items: center;
+      z-index: 10000;
+      flex-direction: column;
+      color: white;
+      padding: 10px;
+    }
+    #viewerContent {
+      max-width: 90vw;
+      max-height: 80vh;
+      border-radius: 10px;
+      position: relative;
+    }
+    #viewerContent img, #viewerContent video {
+      width: 100%;
+      height: 100%;
+      border-radius: 10px;
+      object-fit: contain;
+      background-color: black;
+    }
+    #statusUploaderName {
+      margin-top: 10px;
+      font-weight: bold;
+      font-size: 1.1em;
+      text-align: center;
+    }
+    #viewedByList {
+      margin-top: 10px;
+      max-height: 150px;
+      overflow-y: auto;
+      background: #222;
+      border-radius: 5px;
+      padding: 10px;
+      width: 100%;
+      max-width: 600px;
+    }
+    #viewedByList strong {
+      display: block;
+      margin-bottom: 5px;
+    }
+    #viewers div {
+      margin-bottom: 3px;
+    }
+    #closeViewer, #prevStatus, #nextStatus {
+      margin: 10px 5px 0 5px;
+      background-color: #0f0;
+      color: black;
+      border: none;
+      padding: 8px 15px;
+      border-radius: 5px;
+      cursor: pointer;
+      font-weight: bold;
+      user-select: none;
+    }
+    #navButtons {
+      margin-top: 10px;
+      display: flex;
+      justify-content: center;
+      gap: 15px;
+      width: 100%;
+      max-width: 600px;
+    }
   </style>
 </head>
 <body>
@@ -70,6 +171,7 @@
   localStorage.setItem("userName", currentUser);
   firebase.auth().signInAnonymously().catch(console.error);
 
+  // 🔹 رفع الملفات إلى Cloudinary مع كشف الأخطاء
   document.getElementById("uploadBtn").onclick = async () => {
     const fileInput = document.getElementById("fileInput");
     if (fileInput.files.length === 0) {
@@ -77,32 +179,51 @@
       return;
     }
     const file = fileInput.files[0];
-    const fileType = file.type.startsWith("video") ? "video" : "image";
-    const uploadUrl = `https://api.cloudinary.com/v1_1/dv1w1yen/${fileType}/upload`;
+    const ext = file.name.split('.').pop().toLowerCase();
+    if (!["jpg", "jpeg", "png", "gif", "mp4", "mov", "webm"].includes(ext)) {
+      alert("نوع الملف غير مدعوم");
+      return;
+    }
 
     try {
       const formData = new FormData();
       formData.append("file", file);
       formData.append("upload_preset", "unsigned_preset");
 
-      const res = await fetch(uploadUrl, { method: "POST", body: formData });
-      const data = await res.json();
-      if (!data.secure_url) throw new Error("فشل رفع الملف على Cloudinary");
+      const res = await fetch(`https://api.cloudinary.com/v1_1/dv1w1yen/upload`, {
+        method: "POST",
+        body: formData
+      });
+
+      const textResponse = await res.text();
+      console.log("📡 Cloudinary Response:", textResponse);
+
+      let data;
+      try {
+        data = JSON.parse(textResponse);
+      } catch (err) {
+        throw new Error("فشل تحليل رد Cloudinary، الرد: " + textResponse);
+      }
+
+      if (!data.secure_url) {
+        throw new Error(data.error?.message || "فشل رفع الملف على Cloudinary");
+      }
 
       const statusId = Date.now();
-      await db.ref(`statuses/${currentUser}/${statusId}`).set({
+      db.ref(`statuses/${currentUser}/${statusId}`).set({
         fileURL: data.secure_url,
         timestamp: Date.now(),
-        type: fileType,
+        type: file.type.startsWith("video") ? "video" : "image",
         viewers: {}
       });
 
       alert("تم إضافة الحالة بنجاح");
       fileInput.value = "";
       loadStatuses();
+
     } catch (err) {
-      console.error(err);
-      alert("حدث خطأ أثناء رفع الحالة");
+      console.error("❌ خطأ:", err);
+      alert("حدث خطأ أثناء رفع الحالة: " + err.message);
     }
   };
 
