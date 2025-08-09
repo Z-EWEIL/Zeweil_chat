@@ -55,8 +55,6 @@
       height: 100%;
       object-fit: cover;
     }
-
-    /* النافذة الكاملة لعرض الحالة */
     #viewerModal {
       position: fixed;
       top: 0; left: 0; right: 0; bottom: 0;
@@ -105,7 +103,6 @@
     #viewers div {
       margin-bottom: 3px;
     }
-
     #closeViewer, #prevStatus, #nextStatus {
       margin: 10px 5px 0 5px;
       background-color: #0f0;
@@ -136,11 +133,8 @@
   <button id="uploadBtn">➕ أضف حالة</button>
 </div>
 
-<div id="statusesContainer">
-  <!-- تظهر الحالات هنا -->
-</div>
+<div id="statusesContainer"></div>
 
-<!-- نافذة عرض الحالة -->
 <div id="viewerModal">
   <div id="viewerContent"></div>
   <div id="statusUploaderName"></div>
@@ -159,7 +153,6 @@
 
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
-<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-storage.js"></script>
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
 <script>
   const firebaseConfig = {
@@ -172,11 +165,10 @@
     appId: "1:79843372176:web:ea511efffae60c2a6cfc15"
   };
   firebase.initializeApp(firebaseConfig);
-
   const db = firebase.database();
-  const storage = firebase.storage();
 
   let currentUser = localStorage.getItem("userName") || prompt("اكتب اسمك للدخول:");
+  localStorage.setItem("userName", currentUser);
   firebase.auth().signInAnonymously().catch(console.error);
 
   document.getElementById("uploadBtn").onclick = async () => {
@@ -191,69 +183,61 @@
       alert("نوع الملف غير مدعوم");
       return;
     }
-    const statusId = Date.now();
-    const filePath = `statuses/${currentUser}/${statusId}_${file.name}`;
-    const uploadTask = storage.ref(filePath).put(file);
-    uploadTask.on('state_changed',
-      snapshot => {},
-      error => { alert("حدث خطأ في رفع الملف"); console.error(error); },
-      async () => {
-        const url = await uploadTask.snapshot.ref.getDownloadURL();
-        db.ref(`statuses/${currentUser}/${statusId}`).set({
-          fileURL: url,
-          timestamp: Date.now(),
-          type: file.type.startsWith("video") ? "video" : "image",
-          viewers: {}
-        });
-        alert("تم إضافة الحالة بنجاح");
-        fileInput.value = "";
-        loadStatuses();
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("upload_preset", "unsigned_preset");
+
+      const res = await fetch(`https://api.cloudinary.com/v1_1/dv1w1yen4/upload`, {
+        method: "POST",
+        body: formData
       });
+      const data = await res.json();
+      if (!data.secure_url) throw new Error("فشل رفع الملف على Cloudinary");
+
+      const statusId = Date.now();
+      db.ref(`statuses/${currentUser}/${statusId}`).set({
+        fileURL: data.secure_url,
+        timestamp: Date.now(),
+        type: file.type.startsWith("video") ? "video" : "image",
+        viewers: {}
+      });
+
+      alert("تم إضافة الحالة بنجاح");
+      fileInput.value = "";
+      loadStatuses();
+    } catch (err) {
+      console.error(err);
+      alert("حدث خطأ أثناء رفع الحالة");
+    }
   };
 
   const statusesContainer = document.getElementById("statusesContainer");
-
-  // تخزين كل الحالات كلها في مصفوفة للوصول السريع والتنقل
   let allStatuses = [];
-  // الحالة الحالية للعرض (index)
   let currentStatusIndex = 0;
 
   function loadStatuses() {
     statusesContainer.innerHTML = "";
     allStatuses = [];
-
     db.ref("statuses").once("value").then(snapshot => {
       snapshot.forEach(userSnap => {
         const userName = userSnap.key;
         const userStatuses = userSnap.val();
-
-        // لكل حالة عند المستخدم، نضيفها كلها للقائمة
         Object.entries(userStatuses).forEach(([statusKey, status]) => {
-          allStatuses.push({
-            userName,
-            statusKey,
-            ...status
-          });
+          allStatuses.push({ userName, statusKey, ...status });
         });
       });
-
-      // نرتب الحالات حسب الوقت من الأحدث للأقدم
       allStatuses.sort((a, b) => b.timestamp - a.timestamp);
-
-      // نعرض فقط آخر حالة لكل مستخدم في القائمة الرئيسية
       let latestByUser = {};
       allStatuses.forEach(s => {
         if (!latestByUser[s.userName] || latestByUser[s.userName].timestamp < s.timestamp) {
           latestByUser[s.userName] = s;
         }
       });
-
-      // نعرض الحالات في الواجهة
       for (const userName in latestByUser) {
         const status = latestByUser[userName];
         const div = document.createElement("div");
         div.className = "status-item";
-
         if (status.type === "video") {
           const video = document.createElement("video");
           video.src = status.fileURL;
@@ -266,39 +250,27 @@
           img.src = status.fileURL;
           div.appendChild(img);
         }
-
         div.title = `حالة ${userName}`;
         div.onclick = () => openViewerByUser(userName);
-
         statusesContainer.appendChild(div);
       }
     });
   }
 
-  // لفتح نافذة العرض بحالات المستخدم كلها والبدء بأول حالة عنده
   function openViewerByUser(userName) {
-    // نجيب كل حالات هذا المستخدم
-    const userStatuses = allStatuses.filter(s => s.userName === userName);
-    if (userStatuses.length === 0) return;
-
-    // تحديث قائمة الحالات المعروضة للعرض فقط حالات هذا المستخدم
-    viewingStatuses = userStatuses.sort((a,b) => a.timestamp - b.timestamp);
+    viewingStatuses = allStatuses.filter(s => s.userName === userName).sort((a,b) => a.timestamp - b.timestamp);
+    if (viewingStatuses.length === 0) return;
     currentStatusIndex = 0;
-
     showStatusAtIndex();
     viewerModal.style.display = "flex";
   }
 
-  let viewingStatuses = []; // الحالات التي تعرض حالياً (لمستخدم واحد)
-
+  let viewingStatuses = [];
   async function showStatusAtIndex() {
     const status = viewingStatuses[currentStatusIndex];
     if (!status) return;
-
     viewerContent.innerHTML = "";
     viewersDiv.innerHTML = "";
-
-    // عرض الصورة أو الفيديو
     if (status.type === "video") {
       const video = document.createElement("video");
       video.src = status.fileURL;
@@ -310,16 +282,11 @@
       img.src = status.fileURL;
       viewerContent.appendChild(img);
     }
-
     statusUploaderName.textContent = `الحالة من: ${status.userName} (${currentStatusIndex + 1} / ${viewingStatuses.length})`;
-
-    // تسجيل المشاهدة
     db.ref(`statuses/${status.userName}/${status.statusKey}/viewers/${currentUser}`).set({
       name: currentUser,
       timestamp: Date.now()
     });
-
-    // جلب المشاهدين وعرضهم
     const viewersSnap = await db.ref(`statuses/${status.userName}/${status.statusKey}/viewers`).once("value");
     const viewers = viewersSnap.val() || {};
     for (const viewer in viewers) {
@@ -337,14 +304,12 @@
     viewersDiv.innerHTML = "";
     viewingStatuses = [];
   };
-
   document.getElementById("prevStatus").onclick = () => {
     if (currentStatusIndex > 0) {
       currentStatusIndex--;
       showStatusAtIndex();
     }
   };
-
   document.getElementById("nextStatus").onclick = () => {
     if (currentStatusIndex < viewingStatuses.length - 1) {
       currentStatusIndex++;
