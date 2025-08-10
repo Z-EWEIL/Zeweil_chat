@@ -3,163 +3,9 @@
 <head>
   <meta charset="UTF-8" />
   <title>ZEWEIL Private Chat</title>
-  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+  <!-- روابط Firebase وCSS زي ما عندك -->
   <style>
-    body {
-      background-color: #111;
-      color: white;
-      font-family: Tahoma;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      padding: 20px;
-    }
-    h2 {
-      color: #0f0;
-      margin-bottom: 10px;
-    }
-    #chat-box {
-      width: 90%;
-      max-width: 600px;
-      height: 400px;
-      overflow-y: auto;
-      background: #1a1a1a;
-      border-radius: 10px;
-      padding: 15px;
-      margin: 15px 0;
-      display: flex;
-      flex-direction: column;
-    }
-    .message {
-      max-width: 80%;
-      padding: 10px 15px;
-      margin: 8px 0;
-      border-radius: 15px;
-      position: relative;
-      word-wrap: break-word;
-      line-height: 1.4;
-    }
-    .my-message {
-      background-color: #0f0;
-      color: #000;
-      align-self: flex-end;
-      border-bottom-right-radius: 0;
-    }
-    .other-message {
-      background-color: #333;
-      color: #fff;
-      align-self: flex-start;
-      border-bottom-left-radius: 0;
-    }
-    .sender {
-      font-weight: bold;
-      font-size: 0.85em;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-    }
-    .time {
-      font-size: 0.75em;
-      opacity: 0.7;
-      margin-top: 4px;
-      text-align: right;
-    }
-    .system-message {
-      color: #888;
-      font-style: italic;
-      text-align: center;
-    }
-    input,
-    button {
-      padding: 10px;
-      border: none;
-      border-radius: 5px;
-      margin: 5px;
-    }
-    input {
-      width: 60%;
-    }
-    #room {
-      width: 200px;
-      margin-bottom: 10px;
-    }
-    button {
-      background-color: #0f0;
-      color: black;
-      cursor: pointer;
-    }
-    #delete-btn {
-      background: transparent;
-      border: none;
-      color: red;
-      font-weight: bold;
-      cursor: pointer;
-      font-size: 16px;
-      margin-left: 10px;
-    }
-    #onlineToggle {
-      position: absolute;
-      left: 15px;
-      top: 15px;
-      background: #0f0;
-      color: #000;
-      border-radius: 50%;
-      width: 40px;
-      height: 40px;
-      font-size: 20px;
-      font-weight: bold;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-    #onlineList {
-      position: absolute;
-      left: 15px;
-      top: 65px;
-      background: #222;
-      color: white;
-      padding: 10px;
-      border-radius: 8px;
-      display: none;
-      max-height: 300px;
-      overflow-y: auto;
-      min-width: 200px;
-    }
-    #giftShop {
-      margin: 10px 0;
-    }
-    img.rank-icon {
-      width: 50px;
-      height: 50px;
-      margin-left: 5px;
-      vertical-align: middle;
-    }
-    /* زر متجر الرتب ثابت في أعلى اليمين */
-    #shopButton {
-      position: fixed;
-      top: 15px;
-      right: 15px;
-      background-color: #0f0;
-      color: black;
-      font-size: 24px;
-      padding: 10px 14px;
-      border-radius: 50%;
-      cursor: pointer;
-      box-shadow: 0 0 10px #0f0;
-      transition: background-color 0.3s ease, transform 0.2s ease;
-      z-index: 10000;
-      text-decoration: none;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-    #shopButton:hover {
-      background-color: #0c0;
-      transform: scale(1.1);
-    }
+    /* نفس التنسيق اللي عندك */
   </style>
 </head>
 <body>
@@ -283,7 +129,6 @@
       db.ref("rooms/" + room + "/messages").on("child_added", (snapshot) => {
         const data = snapshot.val();
         const key = snapshot.key;
-
         const msgDiv = document.createElement("div");
         msgDiv.classList.add("message");
 
@@ -307,30 +152,42 @@
           const rankImg = getRankImg(rank);
 
           msgDiv.classList.add(data.name === currentUser ? "my-message" : "other-message");
+          msgDiv.ondblclick = () => showEmojiPicker(msgDiv, key);
 
-          // محتوى الرسالة مع زر حذف للرسائل الخاصة بك فقط
+          // إضافة زر حذف إذا صاحب الرسالة هو currentUser
+          let deleteButtonHTML = "";
+          if (data.name === currentUser) {
+            deleteButtonHTML = `<button onclick="deleteMessage('${key}')"
+              style="margin-left:10px; background:#f44336; color:white; border:none; border-radius:5px; cursor:pointer;">
+              حذف
+              </button>`;
+          }
+
           msgDiv.innerHTML = `
-            <div class="sender">
-              <span>${data.name} ${rankImg}</span>
-              ${
-                data.name === currentUser
-                  ? `<button id="delete-btn" title="حذف الرسالة">✖</button>`
-                  : ""
-              }
-            </div>
+            <div class="sender">${data.name} ${rankImg} ${deleteButtonHTML}</div>
             ${data.message}
             <div class="time">${data.time}</div>
           `;
 
-          if (data.name === currentUser) {
-            const delBtn = msgDiv.querySelector("#delete-btn");
-            delBtn.onclick = () => {
-              if (confirm("هل أنت متأكد من حذف هذه الرسالة؟")) {
-                db.ref(`rooms/${currentRoom}/messages/${key}`).remove();
+          const giftBtn = document.createElement("button");
+          giftBtn.textContent = "🎁";
+          giftBtn.onclick = () => sendGift(data.name);
+          msgDiv.appendChild(giftBtn);
+
+          const reactionsDiv = document.createElement("div");
+          reactionsDiv.className = "reactions";
+          if (data.reactions) {
+            Object.entries(data.reactions).forEach(([emoji, users]) => {
+              if (users.length > 0) {
+                const r = document.createElement("div");
+                r.className = "reaction";
+                r.textContent = `${emoji} ${users.length}`;
+                reactionsDiv.appendChild(r);
               }
-            };
+            });
           }
 
+          msgDiv.appendChild(reactionsDiv);
           document.getElementById("chat-box").appendChild(msgDiv);
           document.getElementById("chat-box").scrollTop =
             document.getElementById("chat-box").scrollHeight;
@@ -374,6 +231,80 @@
         time: new Date().toLocaleTimeString(),
         system: true,
       });
+    }
+
+    function deleteMessage(msgKey) {
+      if (!currentRoom) return;
+      // احذف الرسالة من قاعدة البيانات
+      db.ref(`rooms/${currentRoom}/messages/${msgKey}`).remove();
+    }
+
+    function sendGift(toUser) {
+      const emoji = prompt("اختر هدية: 🌹 🎉 💎 🏆");
+      if (!giftPrices[emoji]) return alert("❌ هدية غير صحيحة");
+
+      const userPointsRef = db.ref(`users/${userId}/points`);
+      userPointsRef.once("value", (snap) => {
+        const currentPoints = snap.val() || 0;
+        const cost = giftPrices[emoji];
+        if (currentPoints < cost) return alert("❌ لا تملك نقاط كافية!");
+
+        userPointsRef.set(currentPoints - cost);
+
+        db.ref("users")
+          .once("value")
+          .then((snapshot) => {
+            snapshot.forEach((child) => {
+              const data = child.val();
+              if (data.name === toUser) {
+                const receiverRef = db.ref(`users/${child.key}/points`);
+                receiverRef.once("value", (snap2) => {
+                  const receiverPoints = snap2.val() || 0;
+                  receiverRef.set(receiverPoints + cost);
+                });
+              }
+            });
+          });
+
+        db.ref("rooms/" + currentRoom + "/messages").push({
+          name: "🎁 هدية",
+          message: `${currentUser} أرسل ${emoji} إلى ${toUser}`,
+          time: new Date().toLocaleTimeString(),
+          system: true,
+        });
+      });
+    }
+
+    function addReaction(msgKey, emoji) {
+      const ref = db.ref(
+        `rooms/${currentRoom}/messages/${msgKey}/reactions/${emoji}`
+      );
+      ref.once("value", (snapshot) => {
+        const users = snapshot.val() || [];
+        if (users.includes(currentUser)) {
+          ref.set(users.filter((u) => u !== currentUser));
+        } else {
+          ref.set([...users, currentUser]);
+        }
+      });
+    }
+
+    function showEmojiPicker(target, msgKey) {
+      let picker = document.createElement("div");
+      picker.className = "emoji-picker";
+      ["❤️", "😂", "👍", "👎", "😮", "😢"].forEach((e) => {
+        let span = document.createElement("span");
+        span.textContent = e;
+        span.onclick = () => {
+          addReaction(msgKey, e);
+          document.body.removeChild(picker);
+        };
+        picker.appendChild(span);
+      });
+      document.body.appendChild(picker);
+      picker.style.left = target.getBoundingClientRect().left + "px";
+      picker.style.top = target.getBoundingClientRect().top - 40 + "px";
+      picker.style.display = "block";
     }
 
     function startCall() {
