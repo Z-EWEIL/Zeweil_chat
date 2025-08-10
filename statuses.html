@@ -33,6 +33,7 @@
       padding: 10px 15px;
       border-radius: 5px;
       cursor: pointer;
+      font-weight: bold;
     }
     #statusesContainer {
       display: flex;
@@ -130,7 +131,7 @@
 
 <div id="addStatusSection">
   <input type="file" id="fileInput" accept="image/*,video/*" />
-  <button id="uploadBtn">➕ أضف حالة</button>
+  <button id="uploadBtn" type="button">📤 رفع حالة</button>
 </div>
 
 <div id="statusesContainer"></div>
@@ -171,8 +172,8 @@
   localStorage.setItem("userName", currentUser);
   firebase.auth().signInAnonymously().catch(console.error);
 
-  // 🔹 رفع الملفات إلى Cloudinary مع كشف الأخطاء
-  document.getElementById("uploadBtn").onclick = async () => {
+  document.getElementById("uploadBtn").addEventListener("click", async () => {
+    console.log("✅ الزرار شغال"); // للتأكد إن الكليك بيوصل
     const fileInput = document.getElementById("fileInput");
     if (fileInput.files.length === 0) {
       alert("اختر صورة أو فيديو أولاً");
@@ -184,7 +185,6 @@
       alert("نوع الملف غير مدعوم");
       return;
     }
-
     try {
       const formData = new FormData();
       formData.append("file", file);
@@ -194,20 +194,8 @@
         method: "POST",
         body: formData
       });
-
-      const textResponse = await res.text();
-      console.log("📡 Cloudinary Response:", textResponse);
-
-      let data;
-      try {
-        data = JSON.parse(textResponse);
-      } catch (err) {
-        throw new Error("فشل تحليل رد Cloudinary، الرد: " + textResponse);
-      }
-
-      if (!data.secure_url) {
-        throw new Error(data.error?.message || "فشل رفع الملف على Cloudinary");
-      }
+      const data = await res.json();
+      if (!data.secure_url) throw new Error("فشل رفع الملف على Cloudinary");
 
       const statusId = Date.now();
       db.ref(`statuses/${currentUser}/${statusId}`).set({
@@ -220,12 +208,11 @@
       alert("تم إضافة الحالة بنجاح");
       fileInput.value = "";
       loadStatuses();
-
     } catch (err) {
-      console.error("❌ خطأ:", err);
-      alert("حدث خطأ أثناء رفع الحالة: " + err.message);
+      console.error(err);
+      alert("حدث خطأ أثناء رفع الحالة");
     }
-  };
+  });
 
   const statusesContainer = document.getElementById("statusesContainer");
   let allStatuses = [];
