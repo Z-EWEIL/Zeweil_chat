@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+  <meta charset="UTF-8" />
+  <title>إدارة الغرف - ZEWEIL Chat</title>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+  <style>
+    body { background: #111; color: white; font-family: Tahoma; padding: 20px; }
+    h2 { color: #0f0; }
+    button { padding: 8px; margin: 5px; border: none; border-radius: 5px; background: #0f0; color: #000; cursor: pointer; }
+    table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+    th, td { border: 1px solid #333; padding: 10px; text-align: center; }
+    th { background: #222; }
+  </style>
+</head>
+<body>
+  <h2>🛠️ إدارة الغرف - ZEWEIL Chat</h2>
+  <button onclick="loadRooms()">📥 تحميل الغرف</button>
+  <table>
+    <thead>
+      <tr>
+        <th>اسم الغرفة</th>
+        <th>الحالة</th>
+        <th>الإجراءات</th>
+      </tr>
+    </thead>
+    <tbody id="roomTable"></tbody>
+  </table>
+
+  <script>
+    const firebaseConfig = {
+      databaseURL: "https://zeweil-chat-default-rtdb.europe-west1.firebasedatabase.app/"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+
+    function loadRooms() {
+      const table = document.getElementById("roomTable");
+      table.innerHTML = "";
+
+      db.ref("rooms").once("value", snapshot => {
+        snapshot.forEach(child => {
+          const roomName = child.key;
+          const room = child.val();
+
+          const row = document.createElement("tr");
+          row.innerHTML = `
+            <td>${roomName}</td>
+            <td>${room.active ? "مفتوحة" : "مقفولة"}</td>
+            <td>
+              <button onclick="toggleRoom('${roomName}', ${room.active})">
+                ${room.active ? "🛑 إقفال الغرفة" : "✅ فتح الغرفة"}
+              </button>
+              <button onclick="sendSystemMessage('${roomName}')">📢 رسالة نظام</button>
+              <button onclick="deleteRoomMessages('${roomName}')">🗑️ حذف رسائل الغرفة</button>
+            </td>
+          `;
+          table.appendChild(row);
+        });
+      });
+    }
+
+    function toggleRoom(roomName, isActive) {
+      db.ref(`rooms/${roomName}`).update({ active: !isActive })
+        .then(() => {
+          alert(`تم ${isActive ? "إقفال" : "فتح"} الغرفة: ${roomName}`);
+          loadRooms();
+        })
+        .catch(() => alert("حدث خطأ أثناء تغيير حالة الغرفة"));
+    }
+
+    function sendSystemMessage(roomName) {
+      const message = prompt(`اكتب رسالة النظام التي تريد إرسالها إلى غرفة "${roomName}":`);
+      if (!message) return;
+
+      db.ref(`rooms/${roomName}/messages`).push({
+        name: "🚨 النظام",
+        message: message,
+        time: new Date().toLocaleTimeString(),
+        system: true
+      })
+      .then(() => alert("تم إرسال رسالة النظام بنجاح"))
+      .catch(() => alert("حدث خطأ أثناء إرسال رسالة النظام"));
+    }
+
+    function deleteRoomMessages(roomName) {
+      if (!confirm(`هل أنت متأكد من حذف كل رسائل غرفة: ${roomName}؟ هذه العملية لا يمكن التراجع عنها!`)) {
+        return;
+      }
+      db.ref(`rooms/${roomName}/messages`).remove()
+        .then(() => alert(`✅ تم حذف كل رسائل غرفة ${roomName}`))
+        .catch(() => alert("❌ حدث خطأ أثناء حذف الرسائل"));
+    }
+  </script>
+</body>
+</html>
