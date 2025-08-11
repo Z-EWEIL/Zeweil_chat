@@ -12,6 +12,24 @@
     table { width: 100%; border-collapse: collapse; margin-top: 15px; }
     th, td { border: 1px solid #333; padding: 10px; text-align: center; }
     th { background: #222; }
+    #messagesSection, #usersSection {
+      margin-top: 30px;
+      border: 1px solid #333;
+      padding: 10px;
+      max-height: 400px;
+      overflow-y: auto;
+      background: #222;
+    }
+    #messagesSection table, #usersSection table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    #messagesSection th, #messagesSection td, 
+    #usersSection th, #usersSection td {
+      border: 1px solid #444;
+      padding: 8px;
+      text-align: center;
+    }
   </style>
 </head>
 <body>
@@ -28,6 +46,40 @@
     <tbody id="roomTable"></tbody>
   </table>
 
+  <div id="messagesSection" style="display:none;">
+    <h3>📨 رسائل الغرفة: <span id="currentRoomName"></span></h3>
+    <table>
+      <thead>
+        <tr>
+          <th>مفتاح الرسالة</th>
+          <th>اسم المرسل</th>
+          <th>الرسالة</th>
+          <th>الوقت</th>
+          <th>تعديل</th>
+          <th>حذف</th>
+        </tr>
+      </thead>
+      <tbody id="messageTableBody"></tbody>
+    </table>
+  </div>
+
+  <div id="usersSection" style="display:none;">
+    <h3>👥 المستخدمون في الغرفة: <span id="currentRoomUsers"></span></h3>
+    <table>
+      <thead>
+        <tr>
+          <th>معرّف المستخدم</th>
+          <th>الاسم</th>
+          <th>آخر ظهور</th>
+          <th>حالة التبنيد</th>
+          <th>تبنيد</th>
+          <th>رفع التبنيد</th>
+        </tr>
+      </thead>
+      <tbody id="userTableBody"></tbody>
+    </table>
+  </div>
+
   <script>
     const firebaseConfig = {
       databaseURL: "https://zeweil-chat-default-rtdb.europe-west1.firebasedatabase.app/"
@@ -35,9 +87,12 @@
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
 
+    let currentRoom = null;
+
     function loadRooms() {
       const table = document.getElementById("roomTable");
       table.innerHTML = "";
+      hideRoomDetails();
 
       db.ref("rooms").once("value", snapshot => {
         snapshot.forEach(child => {
@@ -54,6 +109,7 @@
               </button>
               <button onclick="sendSystemMessage('${roomName}')">📢 رسالة نظام</button>
               <button onclick="deleteRoomMessages('${roomName}')">🗑️ حذف رسائل الغرفة</button>
+              <button onclick="openRoomDetails('${roomName}')">🔍 فتح الغرفة</button>
             </td>
           `;
           table.appendChild(row);
@@ -66,6 +122,7 @@
         .then(() => {
           alert(`تم ${isActive ? "إقفال" : "فتح"} الغرفة: ${roomName}`);
           loadRooms();
+          if(currentRoom === roomName) openRoomDetails(roomName);
         })
         .catch(() => alert("حدث خطأ أثناء تغيير حالة الغرفة"));
     }
@@ -92,6 +149,69 @@
         .then(() => alert(`✅ تم حذف كل رسائل غرفة ${roomName}`))
         .catch(() => alert("❌ حدث خطأ أثناء حذف الرسائل"));
     }
-  </script>
-</body>
-</html>
+
+    // إخفاء أقسام التفاصيل
+    function hideRoomDetails() {
+      document.getElementById("messagesSection").style.display = "none";
+      document.getElementById("usersSection").style.display = "none";
+      currentRoom = null;
+    }
+
+    // فتح تفاصيل الغرفة (الرسائل + المستخدمين)
+    function openRoomDetails(roomName) {
+      currentRoom = roomName;
+      document.getElementById("currentRoomName").textContent = roomName;
+      document.getElementById("currentRoomUsers").textContent = roomName;
+      document.getElementById("messagesSection").style.display = "block";
+      document.getElementById("usersSection").style.display = "block";
+
+      loadRoomMessages(roomName);
+      loadRoomUsers(roomName);
+    }
+
+    // تحميل رسائل الغرفة وعرضها
+    function loadRoomMessages(roomName) {
+      const tbody = document.getElementById("messageTableBody");
+      tbody.innerHTML = "";
+
+      db.ref(`rooms/${roomName}/messages`).once("value")
+        .then(snapshot => {
+          snapshot.forEach(child => {
+            const key = child.key;
+            const msg = child.val();
+
+            const row = document.createElement("tr");
+            row.innerHTML = `
+              <td>${key}</td>
+              <td>${msg.name}</td>
+              <td><input type="text" id="msgInput-${key}" value="${msg.message}" style="width: 90%" /></td>
+              <td>${msg.time}</td>
+              <td><button onclick="editMessage('${key}')">✏️ تعديل</button></td>
+              <td><button onclick="deleteMessage('${key}')">🗑️ حذف</button></td>
+            `;
+            tbody.appendChild(row);
+          });
+        })
+        .catch(() => alert("❌ حدث خطأ أثناء تحميل الرسائل"));
+    }
+
+    function editMessage(msgKey) {
+      const newMsg = document.getElementById(`msgInput-${msgKey}`).value.trim();
+      if (!newMsg) {
+        alert("❌ الرسالة لا يمكن أن تكون فارغة");
+        return;
+      }
+      db.ref(`rooms/${currentRoom}/messages/${msgKey}`).update({ message: newMsg })
+        .then(() => {
+          alert("✅ تم تعديل الرسالة بنجاح");
+          loadRoomMessages(currentRoom);
+        })
+        .catch(() => alert("❌ حدث خطأ أثناء تعديل الرسالة"));
+    }
+
+    function deleteMessage(msgKey) {
+      if (!confirm("هل أنت متأكد من حذف هذه الرسالة؟")) return;
+      db.ref(`rooms/${currentRoom}/messages/${msgKey}`).remove()
+        .then(() => {
+          alert("✅ تم حذف الرسالة");
+          loadRoomMessages(currentRoom);
