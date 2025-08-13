@@ -1,626 +1,657 @@
-<!DOCTYPE html>  
-<html lang="ar">  
-<head>  
-  <meta charset="UTF-8" />  
-  <title>ZEWEIL Private Chat</title>  
-  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>  
-  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>  
-  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>  
-  <style>  
-    body {  
-      background-color: #111;  
-      color: white;  
-      font-family: Tahoma;  
-      display: flex;  
-      flex-direction: column;  
-      align-items: center;  
-      padding: 20px;  
-    }  
-    h2 {  
-      color: #0f0;  
-      margin-bottom: 10px;  
-    }  
-    #chat-box {  
-      width: 90%;  
-      max-width: 600px;  
-      height: 400px;  
-      overflow-y: auto;  
-      background: #1a1a1a;  
-      border-radius: 10px;  
-      padding: 15px;  
-      margin: 15px 0;  
-      display: flex;  
-      flex-direction: column;  
-    }  
-    .message {  
-      max-width: 80%;  
-      padding: 10px 15px;  
-      margin: 8px 0;  
-      border-radius: 15px;  
-      position: relative;  
-      word-wrap: break-word;  
-      line-height: 1.4;  
-    }  
-    .my-message {  
-      background-color: #0f0;  
-      color: #000;  
-      align-self: flex-end;  
-      border-bottom-right-radius: 0;  
-    }  
-    .other-message {  
-      background-color: #333;  
-      color: #fff;  
-      align-self: flex-start;  
-      border-bottom-left-radius: 0;  
-    }  
-    .sender {  
-      font-weight: bold;  
-      font-size: 0.85em;  
-      display: flex;  
-      align-items: center;  
-    }  
-    .time {  
-      font-size: 0.75em;  
-      opacity: 0.7;  
-      margin-top: 4px;  
-      text-align: right;  
-    }  
-    .system-message {  
-      color: #888;  
-      font-style: italic;  
-      text-align: center;  
-    }  
-    input,  
-    button {  
-      padding: 10px;  
-      border: none;  
-      border-radius: 5px;  
-      margin: 5px;  
-    }  
-    input {  
-      width: 60%;  
-    }  
-    #room {  
-      width: 200px;  
-      margin-bottom: 10px;  
-    }  
-    button {  
-      background-color: #0f0;  
-      color: black;  
-      cursor: pointer;  
-    }  
-    .emoji-picker {  
-      display: none;  
-      background: #222;  
-      border: 1px solid #333;  
-      border-radius: 8px;  
-      position: absolute;  
-      bottom: 35px;  
-      padding: 6px;  
-    }  
-    .emoji-picker span {  
-      font-size: 20px;  
-      cursor: pointer;  
-      margin: 3px;  
-    }  
-    .reactions {  
-      display: flex;  
-      flex-wrap: wrap;  
-      gap: 4px;  
-      margin-top: 5px;  
-    }  
-    .reaction {  
-      font-size: 14px;  
-      background: #444;  
-      padding: 2px 6px;  
-      border-radius: 10px;  
-    }  
-    #onlineToggle {  
-      position: absolute;  
-      left: 15px;  
-      top: 15px;  
-      background: #0f0;  
-      color: #000;  
-      border-radius: 50%;  
-      width: 40px;  
-      height: 40px;  
-      font-size: 20px;  
-      font-weight: bold;  
-      cursor: pointer;  
-      display: flex;  
-      align-items: center;  
-      justify-content: center;  
-    }  
-    #onlineList {  
-      position: absolute;  
-      left: 15px;  
-      top: 65px;  
-      background: #222;  
-      color: white;  
-      padding: 10px;  
-      border-radius: 8px;  
-      display: none;  
-      max-height: 300px;  
-      overflow-y: auto;  
-      min-width: 200px;  
-    }  
-    #giftShop {  
-      margin: 10px 0;  
-    }  
-    img.rank-icon {  
-      width: 50px;  
-      height: 50px;  
-      margin-left: 5px;  
-      vertical-align: middle;  
-    }  
-  
-    /* زر متجر الرتب ثابت في أعلى اليمين */  
-    #shopButton {  
-      position: fixed;  
-      top: 15px;  
-      right: 15px;  
-      background-color: #0f0;  
-      color: black;  
-      font-size: 24px;  
-      padding: 10px 14px;  
-      border-radius: 50%;  
-      cursor: pointer;  
-      box-shadow: 0 0 10px #0f0;  
-      transition: background-color 0.3s ease, transform 0.2s ease;  
-      z-index: 10000;  
-      text-decoration: none;  
-      display: flex;  
-      align-items: center;  
-      justify-content: center;  
-    }  
-    #shopButton:hover {  
-      background-color: #0c0;  
-      transform: scale(1.1);  
-    }  
-  </style>  
-</head>  
-<body>  
-  <div id="onlineToggle">👥</div>  
-  <div id="onlineList"></div>  
-  
-  <!-- زر متجر الرتب -->  
-  <a href="https://zeweil-chat.vercel.app/rank-shop.html" id="shopButton" title="متجر الرتب">🛒</a>  
-  
-  <h2>🔐 دردشة ZEWEIL الخاصة</h2>  
-  <input type="text" id="room" placeholder="🛡️ كود الغرفة" />  
-  <input type="text" id="username" placeholder="🡩‍💬 اسمك" />  
-  <button onclick="joinRoom()">انضم</button>  
-  <div id="giftShop">  
-    <button onclick="window.open('https://app.fawaterk.com/paymentRequest/show/25451', '_blank')">  
-      🎁 شراء نقاط  
-    </button>  
-    <span id="pointsDisplay">رصيدك: 0 🎯</span>  
-  </div>  
-  <div id="chat-box"></div>  
-  <input type="text" id="message" placeholder="💬 رسالتك" />  
-  <button onclick="sendMessage()">إرسال</button>  
-  <button onclick="startCall()">📹 مكالمة فيديو</button>  
-  <button onclick="startVoiceCall()">📞 مكالمة صوتية</button><script>  
-  const firebaseConfig = {  
-    apiKey: "AIzaSyAlim9FOvDcMqTJWINoBCHk3k6DNXS-jTo",  
-    authDomain: "zeweil-chat.firebaseapp.com",  
-    databaseURL: "https://zeweil-chat-default-rtdb.europe-west1.firebasedatabase.app",  
-    projectId: "zeweil-chat",  
-    storageBucket: "zeweil-chat.appspot.com",  
-    messagingSenderId: "79843372176",  
-    appId: "1:79843372176:web:ea511efffae60c2a6cfc15",  
-  };  
-  firebase.initializeApp(firebaseConfig);  
-  const db = firebase.database();  
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+  <meta charset="UTF-8" />
+  <title>ZEWEIL Private Chat</title>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+  <style>
+    body {
+      background-color: #111;
+      color: white;
+      font-family: Tahoma;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 20px;
+    }
+    h2 {
+      color: #0f0;
+      margin-bottom: 10px;
+    }
+    #chat-box {
+      width: 90%;
+      max-width: 600px;
+      height: 400px;
+      overflow-y: auto;
+      background: #1a1a1a;
+      border-radius: 10px;
+      padding: 15px;
+      margin: 15px 0;
+      display: flex;
+      flex-direction: column;
+    }
+    .message {
+      max-width: 80%;
+      padding: 10px 15px;
+      margin: 8px 0;
+      border-radius: 15px;
+      position: relative;
+      word-wrap: break-word;
+      line-height: 1.4;
+    }
+    .my-message {
+      background-color: #0f0;
+      color: #000;
+      align-self: flex-end;
+      border-bottom-right-radius: 0;
+    }
+    .other-message {
+      background-color: #333;
+      color: #fff;
+      align-self: flex-start;
+      border-bottom-left-radius: 0;
+    }
+    .sender {
+      font-weight: bold;
+      font-size: 0.85em;
+      display: flex;
+      align-items: center;
+    }
+    .time {
+      font-size: 0.75em;
+      opacity: 0.7;
+      margin-top: 4px;
+      text-align: right;
+    }
+    .system-message {
+      color: #888;
+      font-style: italic;
+      text-align: center;
+    }
+    input,
+    button {
+      padding: 10px;
+      border: none;
+      border-radius: 5px;
+      margin: 5px;
+    }
+    input {
+      width: 60%;
+    }
+    #room {
+      width: 200px;
+      margin-bottom: 10px;
+    }
+    button {
+      background-color: #0f0;
+      color: black;
+      cursor: pointer;
+    }
+    .emoji-picker {
+      display: none;
+      background: #222;
+      border: 1px solid #333;
+      border-radius: 8px;
+      position: absolute;
+      bottom: 35px;
+      padding: 6px;
+    }
+    .emoji-picker span {
+      font-size: 20px;
+      cursor: pointer;
+      margin: 3px;
+    }
+    .reactions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      margin-top: 5px;
+    }
+    .reaction {
+      font-size: 14px;
+      background: #444;
+      padding: 2px 6px;
+      border-radius: 10px;
+    }
+    #onlineToggle {
+      position: absolute;
+      left: 15px;
+      top: 15px;
+      background: #0f0;
+      color: #000;
+      border-radius: 50%;
+      width: 40px;
+      height: 40px;
+      font-size: 20px;
+      font-weight: bold;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    #onlineList {
+      position: absolute;
+      left: 15px;
+      top: 65px;
+      background: #222;
+      color: white;
+      padding: 10px;
+      border-radius: 8px;
+      display: none;
+      max-height: 300px;
+      overflow-y: auto;
+      min-width: 200px;
+    }
+    #giftShop {
+      margin: 10px 0;
+    }
+    img.rank-icon {
+      width: 50px;
+      height: 50px;
+      margin-left: 5px;
+      vertical-align: middle;
+    }
+    /* زر متجر الرتب ثابت في أعلى اليمين */
+    #shopButton {
+      position: fixed;
+      top: 15px;
+      right: 15px;
+      background-color: #0f0;
+      color: black;
+      font-size: 24px;
+      padding: 10px 14px;
+      border-radius: 50%;
+      cursor: pointer;
+      box-shadow: 0 0 10px #0f0;
+      transition: background-color 0.3s ease, transform 0.2s ease;
+      z-index: 10000;
+      text-decoration: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    #shopButton:hover {
+      background-color: #0c0;
+      transform: scale(1.1);
+    }
+  </style>
+</head>
+<body>
+  <div id="onlineToggle">👥</div>
+  <div id="onlineList"></div>
 
-  let currentRoom = "";  
-  let currentUser = "";  
-  let userId = localStorage.getItem("savedUserId") || null;  
-  let userRef = null;  
+  <a href="https://zeweil-chat.vercel.app/rank-shop.html" id="shopButton" title="متجر الرتب">🛒</a>
 
-  firebase.auth().onAuthStateChanged((user) => {  
-    if (user) {  
-      userId = user.uid;  
-      localStorage.setItem("savedUserId", userId);  
-    } else {  
-      firebase.auth().signInAnonymously().catch((error) => {  
-        console.error("Auth error:", error.message);  
-      });  
-    }  
-  });  
+  <h2>🔐 دردشة ZEWEIL الخاصة</h2>
+  <input type="text" id="room" placeholder="🛡️ كود الغرفة" />
+  <input type="text" id="username" placeholder="🡩‍💬 اسمك" />
+  <button onclick="joinRoom()">انضم</button>
+  <div id="giftShop">
+    <button onclick="window.open('https://app.fawaterk.com/paymentRequest/show/25451', '_blank')">
+      🎁 شراء نقاط
+    </button>
+    <span id="pointsDisplay">رصيدك: 0 🎯</span>
+  </div>
+  <div id="chat-box"></div>
+  <input type="text" id="message" placeholder="💬 رسالتك" />
+  <button onclick="sendMessage()">إرسال</button>
+  <button onclick="startCall()">📹 مكالمة فيديو</button>
+  <button onclick="startVoiceCall()">📞 مكالمة صوتية</button><script>
+  const firebaseConfig = {
+    apiKey: "AIzaSyAlim9FOvDcMqTJWINoBCHk3k6DNXS-jTo",
+    authDomain: "zeweil-chat.firebaseapp.com",
+    databaseURL: "https://zeweil-chat-default-rtdb.europe-west1.firebasedatabase.app",
+    projectId: "zeweil-chat",
+    storageBucket: "zeweil-chat.appspot.com",
+    messagingSenderId: "79843372176",
+    appId: "1:79843372176:web:ea511efffae60c2a6cfc15",
+  };
+  firebase.initializeApp(firebaseConfig);
+  const db = firebase.database();
 
-  const giftPrices = { "🌹": 5, "🎉": 10, "💎": 25, "🏆": 50 };  
+  let currentRoom = "";
+  let currentUser = "";
+  let userId = localStorage.getItem("savedUserId") || null;
+  let userRef = null;
 
-  document.getElementById("onlineToggle").onclick = () => {  
-    const list = document.getElementById("onlineList");  
-    list.style.display = list.style.display === "block" ? "none" : "block";  
-  };  
+  firebase.auth().onAuthStateChanged((user) => {
+    if (user) {
+      userId = user.uid;
+      localStorage.setItem("savedUserId", userId);
+    } else {
+      firebase.auth().signInAnonymously().catch((error) => {
+        console.error("Auth error:", error.message);
+      });
+    }
+  });
 
-  function getRankImg(rank) {  
-    if (!rank) return "";  
-    const baseRaw = "https://raw.githubusercontent.com/Z-EWEIL/Zeweil_chat/main/";  
-    const filename = `${rank}.png`;  
-    return `<img src="${baseRaw}${filename}" alt="${rank}" class="rank-icon" />`;  
-  }  
+  const giftPrices = { "🌹": 5, "🎉": 10, "💎": 25, "🏆": 50 };
 
-  function addMessageToDOM(key, data) {  
-    if(document.getElementById(key)) return;  
+  document.getElementById("onlineToggle").onclick = () => {
+    const list = document.getElementById("onlineList");
+    list.style.display = list.style.display === "block" ? "none" : "block";
+  };
 
-    const msgDiv = document.createElement("div");  
-    msgDiv.id = key;  
-    msgDiv.classList.add("message");  
+  function getRankImg(rank) {
+    if (!rank) return "";
+    const baseRaw = "https://raw.githubusercontent.com/Z-EWEIL/Zeweil_chat/main/";
+    const filename = `${rank}.png`;
+    return `<img src="${baseRaw}${filename}" alt="${rank}" class="rank-icon" />`;
+  }
 
-    if (data.system) {  
-      msgDiv.classList.add("system-message");  
-      msgDiv.textContent = data.message;  
-      document.getElementById("chat-box").appendChild(msgDiv);  
-      document.getElementById("chat-box").scrollTop = document.getElementById("chat-box").scrollHeight;  
-      return;  
-    }  
+  function addMessageToDOM(key, data) {
+    if(document.getElementById(key)) return;
 
-    db.ref(`users`).orderByChild("name").equalTo(data.name).once("value", (snap) => {  
-      let rank = "beginner";  
-      snap.forEach((userSnap) => {  
-        if (userSnap.exists()) {  
-          rank = userSnap.val().rank || "beginner";  
-        }  
-      });  
+    const msgDiv = document.createElement("div");
+    msgDiv.id = key;
+    msgDiv.classList.add("message");
 
-      const rankImg = getRankImg(rank);  
+    if (data.system) {
+      msgDiv.classList.add("system-message");
+      msgDiv.textContent = data.message;
+      document.getElementById("chat-box").appendChild(msgDiv);
+      document.getElementById("chat-box").scrollTop = document.getElementById("chat-box").scrollHeight;
+      return;
+    }
 
-      // تعديل هنا: نحدد الرسالة إذا كانت لك حسب userId وليس فقط الاسم  
-      const isMyMessage = data.userId === userId;  
+    db.ref(`users`).orderByChild("name").equalTo(data.name).once("value", (snap) => {
+      let rank = "beginner";
+      snap.forEach((userSnap) => {
+        if (userSnap.exists()) {
+          rank = userSnap.val().rank || "beginner";
+        }
+      });
 
-      msgDiv.classList.add(isMyMessage ? "my-message" : "other-message");  
-      msgDiv.ondblclick = () => showEmojiPicker(msgDiv, key);  
+      const rankImg = getRankImg(rank);
 
-      msgDiv.innerHTML = `  
-        <div class="sender">${data.name} ${rankImg}</div>  
-        <div class="message-content">${data.message}</div>  
-        <div class="time">${data.time}</div>  
-      `;  
+      // تعديل هنا: نحدد الرسالة إذا كانت لك حسب userId وليس فقط الاسم
+      const isMyMessage = data.userId === userId;
 
-      if (isMyMessage) {  
-        const editBtn = document.createElement("button");  
-        editBtn.textContent = "✏️";  
-        editBtn.title = "تعديل الرسالة";  
-        editBtn.style.marginLeft = "5px";  
-        editBtn.onclick = () => editMessage(key);  
+      msgDiv.classList.add(isMyMessage ? "my-message" : "other-message");
+      msgDiv.ondblclick = () => showEmojiPicker(msgDiv, key);
 
-        const deleteBtn = document.createElement("button");  
-        deleteBtn.textContent = "🗑️";  
-        deleteBtn.title = "حذف الرسالة";  
-        deleteBtn.style.marginLeft = "5px";  
-        deleteBtn.onclick = () => deleteMessage(key);  
+      msgDiv.innerHTML = `
+        <div class="sender">${data.name} ${rankImg}</div>
+        <div class="message-content">${data.message}</div>
+        <div class="time">${data.time}</div>
+      `;
 
-        msgDiv.appendChild(editBtn);  
-        msgDiv.appendChild(deleteBtn);  
-      }  
+      if (isMyMessage) {
+        const editBtn = document.createElement("button");
+        editBtn.textContent = "✏️";
+        editBtn.title = "تعديل الرسالة";
+        editBtn.style.marginLeft = "5px";
+        editBtn.onclick = () => editMessage(key);
 
-      const giftBtn = document.createElement("button");  
-      giftBtn.textContent = "🎁";  
-      giftBtn.onclick = () => sendGift(data.name);  
-      msgDiv.appendChild(giftBtn);  
+        const deleteBtn = document.createElement("button");
+        deleteBtn.textContent = "🗑️";
+        deleteBtn.title = "حذف الرسالة";
+        deleteBtn.style.marginLeft = "5px";
+        deleteBtn.onclick = () => deleteMessage(key);
 
-      const reactionsDiv = document.createElement("div");  
-      reactionsDiv.className = "reactions";  
-      if (data.reactions) {  
-        Object.entries(data.reactions).forEach(([emoji, users]) => {  
-          if (users.length > 0) {  
-            const r = document.createElement("div");  
-            r.className = "reaction";  
-            r.textContent = `${emoji} ${users.length}`;  
-            reactionsDiv.appendChild(r);  
-          }  
-        });  
-      }  
+        msgDiv.appendChild(editBtn);
+        msgDiv.appendChild(deleteBtn);
+      }
 
-      msgDiv.appendChild(reactionsDiv);  
-      document.getElementById("chat-box").appendChild(msgDiv);  
-      document.getElementById("chat-box").scrollTop = document.getElementById("chat-box").scrollHeight;  
-    });  
-  }  
+      const giftBtn = document.createElement("button");
+      giftBtn.textContent = "🎁";
+      giftBtn.onclick = () => sendGift(data.name);
+      msgDiv.appendChild(giftBtn);
 
-  function updateMessageInDOM(key, data) {  
-    const msgDiv = document.getElementById(key);  
-    if (!msgDiv) return;  
+      const reactionsDiv = document.createElement("div");
+      reactionsDiv.className = "reactions";
+      if (data.reactions) {
+        Object.entries(data.reactions).forEach(([emoji, users]) => {
+          if (users.length > 0) {
+            const r = document.createElement("div");
+            r.className = "reaction";
+            r.textContent = `${emoji} ${users.length}`;
+            reactionsDiv.appendChild(r);
+          }
+        });
+      }
 
-    if (data.system) {  
-      msgDiv.className = "message system-message";  
-      msgDiv.textContent = data.message;  
-      return;  
-    }  
+      msgDiv.appendChild(reactionsDiv);
+      document.getElementById("chat-box").appendChild(msgDiv);
+      document.getElementById("chat-box").scrollTop = document.getElementById("chat-box").scrollHeight;
+    });
+  }
 
-    db.ref(`users`).orderByChild("name").equalTo(data.name).once("value", (snap) => {  
-      let rank = "beginner";  
-      snap.forEach((userSnap) => {  
-        if (userSnap.exists()) {  
-          rank = userSnap.val().rank || "beginner";  
-        }  
-      });  
+  function updateMessageInDOM(key, data) {
+    const msgDiv = document.getElementById(key);
+    if (!msgDiv) return;
 
-      const rankImg = getRankImg(rank);  
+    if (data.system) {
+      msgDiv.className = "message system-message";
+      msgDiv.textContent = data.message;
+      return;
+    }
 
-      const isMyMessage = data.userId === userId;  
+    db.ref(`users`).orderByChild("name").equalTo(data.name).once("value", (snap) => {
+      let rank = "beginner";
+      snap.forEach((userSnap) => {
+        if (userSnap.exists()) {
+          rank = userSnap.val().rank || "beginner";
+        }
+      });
 
-      msgDiv.className = "message";  
-      msgDiv.classList.add(isMyMessage ? "my-message" : "other-message");  
-      msgDiv.ondblclick = () => showEmojiPicker(msgDiv, key);  
+      const rankImg = getRankImg(rank);
 
-      msgDiv.innerHTML = `  
-        <div class="sender">${data.name} ${rankImg}</div>  
-        <div class="message-content">${data.message}</div>  
-        <div class="time">${data.time}</div>  
-      `;  
+      const isMyMessage = data.userId === userId;
 
-      if (isMyMessage) {  
-        const editBtn = document.createElement("button");  
-        editBtn.textContent = "✏️";  
-        editBtn.title = "تعديل الرسالة";  
-        editBtn.style.marginLeft = "5px";  
-        editBtn.onclick = () => editMessage(key);  
+      msgDiv.className = "message";
+      msgDiv.classList.add(isMyMessage ? "my-message" : "other-message");
+      msgDiv.ondblclick = () => showEmojiPicker(msgDiv, key);
 
-        const deleteBtn = document.createElement("button");  
-        deleteBtn.textContent = "🗑️";  
-        deleteBtn.title = "حذف الرسالة";  
-        deleteBtn.style.marginLeft = "5px";  
-        deleteBtn.onclick = () => deleteMessage(key);  
+      msgDiv.innerHTML = `
+        <div class="sender">${data.name} ${rankImg}</div>
+        <div class="message-content">${data.message}</div>
+        <div class="time">${data.time}</div>
+      `;
 
-        msgDiv.appendChild(editBtn);  
-        msgDiv.appendChild(deleteBtn);  
-      }  
+      if (isMyMessage) {
+        const editBtn = document.createElement("button");
+        editBtn.textContent = "✏️";
+        editBtn.title = "تعديل الرسالة";
+        editBtn.style.marginLeft = "5px";
+        editBtn.onclick = () => editMessage(key);
 
-      const giftBtn = document.createElement("button");  
-      giftBtn.textContent = "🎁";  
-      giftBtn.onclick = () => sendGift(data.name);  
-      msgDiv.appendChild(giftBtn);  
+        const deleteBtn = document.createElement("button");
+        deleteBtn.textContent = "🗑️";
+        deleteBtn.title = "حذف الرسالة";
+        deleteBtn.style.marginLeft = "5px";
+        deleteBtn.onclick = () => deleteMessage(key);
 
-      const reactionsDiv = document.createElement("div");  
-      reactionsDiv.className = "reactions";  
-      if (data.reactions) {  
-        Object.entries(data.reactions).forEach(([emoji, users]) => {  
-          if (users.length > 0) {  
-            const r = document.createElement("div");  
-            r.className = "reaction";  
-            r.textContent = `${emoji} ${users.length}`;  
-            reactionsDiv.appendChild(r);  
-          }  
-        });  
-      }  
+        msgDiv.appendChild(editBtn);
+        msgDiv.appendChild(deleteBtn);
+      }
 
-      msgDiv.appendChild(reactionsDiv);  
-    });  
-  }  
+      const giftBtn = document.createElement("button");
+      giftBtn.textContent = "🎁";
+      giftBtn.onclick = () => sendGift(data.name);
+      msgDiv.appendChild(giftBtn);
 
-  function removeMessageFromDOM(key) {  
-    const msgDiv = document.getElementById(key);  
-    if (msgDiv) {  
-      msgDiv.remove();  
-    }  
-  }  
+      const reactionsDiv = document.createElement("div");
+      reactionsDiv.className = "reactions";
+      if (data.reactions) {
+        Object.entries(data.reactions).forEach(([emoji, users]) => {
+          if (users.length > 0) {
+            const r = document.createElement("div");
+            r.className = "reaction";
+            r.textContent = `${emoji} ${users.length}`;
+            reactionsDiv.appendChild(r);
+          }
+        });
+      }
 
-  function sendMessage() {  
-    const msg = document.getElementById("message").value.trim();  
-    if (!currentRoom || !currentUser || !msg) return;  
-    db.ref("rooms/" + currentRoom + "/messages").push({  
-      userId: userId, // إضافة userId هنا  
-      name: currentUser,  
-      message: msg,  
-      time: new Date().toLocaleTimeString(),  
-      reactions: {},  
-    });  
-    document.getElementById("message").value = "";  
-  }  
+      msgDiv.appendChild(reactionsDiv);
+    });
+  }
 
-  function joinRoom() {  
-    const room = document.getElementById("room").value.trim();  
-    const name = document.getElementById("username").value.trim();  
-    if (!room || !name || !userId) return;  
+  function removeMessageFromDOM(key) {
+    const msgDiv = document.getElementById(key);
+    if (msgDiv) {
+      msgDiv.remove();
+    }
+  }
 
-    currentRoom = room;  
-    currentUser = name;  
-    userRef = db.ref(`rooms/${room}/users/${userId}`);  
-    const now = Date.now();  
+  function sendMessage() {
+    const msg = document.getElementById("message").value.trim();
+    if (!currentRoom || !currentUser || !msg) return;
+    db.ref("rooms/" + currentRoom + "/messages").push({
+      userId: userId, // إضافة userId هنا
+      name: currentUser,
+      // استخدام toLocaleString لتضمين التاريخ والوقت معًا
+      time: new Date().toLocaleString(),
+      timestamp: firebase.database.ServerValue.TIMESTAMP,
+      message: msg,
+      reactions: {},
+    });
+    document.getElementById("message").value = "";
+  }
 
-    // تحديث بيانات المستخدم العامة  
-    db.ref(`users/${userId}`)  
-      .once("value")  
-      .then((snapshot) => {  
-        if (snapshot.exists()) {  
-          db.ref(`users/${userId}`).update({ name: currentUser });  
-        } else {  
-          db.ref(`users/${userId}`).set({ name: currentUser, points: 0 });  
-        }  
-      });  
+  function joinRoom() {
+    const room = document.getElementById("room").value.trim();
+    const name = document.getElementById("username").value.trim();
+    if (!room || !name || !userId) return;
 
-    // إضافة المستخدم في الغرفة  
-    userRef.set({ name: currentUser, online: true, lastSeen: now, rank: "beginner" });  
-    userRef.onDisconnect().update({  
-      online: false,  
-      lastSeen: firebase.database.ServerValue.TIMESTAMP,  
-    });  
+    currentRoom = room;
+    currentUser = name;
+    userRef = db.ref(`rooms/${room}/users/${userId}`);
+    const now = Date.now();
 
-    localStorage.setItem("roomCode", currentRoom);  
-    localStorage.setItem("userName", currentUser);  
+    // تحديث بيانات المستخدم العامة
+    db.ref(`users/${userId}`)
+      .once("value")
+      .then((snapshot) => {
+        if (snapshot.exists()) {
+          db.ref(`users/${userId}`).update({ name: currentUser });
+        } else {
+          db.ref(`users/${userId}`).set({ name: currentUser, points: 0 });
+        }
+      });
 
-    db.ref("rooms/" + room + "/messages").off();  
-    document.getElementById("chat-box").innerHTML = "";  
+    // إضافة المستخدم في الغرفة
+    userRef.set({ name: currentUser, online: true, lastSeen: now, rank: "beginner" });
+    userRef.onDisconnect().update({
+      online: false,
+      lastSeen: firebase.database.ServerValue.TIMESTAMP,
+    });
 
-    db.ref("rooms/" + room + "/messages").on("child_added", (snapshot) => {  
-      const data = snapshot.val();  
-      const key = snapshot.key;  
-      addMessageToDOM(key, data);  
-    });  
+    localStorage.setItem("roomCode", currentRoom);
+    localStorage.setItem("userName", currentUser);
 
-    db.ref("rooms/" + room + "/messages").on("child_changed", (snapshot) => {  
-      const data = snapshot.val();  
-      const key = snapshot.key;  
-      updateMessageInDOM(key, data);  
-    });  
+    // حذف المستمعين القدامى قبل إضافة الجدد
+    db.ref("rooms/" + room + "/messages").off();
+    document.getElementById("chat-box").innerHTML = "";
 
-    db.ref("rooms/" + room + "/messages").on("child_removed", (snapshot) => {  
-      const key = snapshot.key;  
-      removeMessageFromDOM(key);  
-    });  
+    // 1. الحصول على جميع الرسائل مرة واحدة وترتيبها زمنياً
+    db.ref("rooms/" + room + "/messages").orderByChild("timestamp").once("value", (snapshot) => {
+      const messages = [];
+      snapshot.forEach((child) => {
+        messages.push({
+          key: child.key,
+          data: child.val()
+        });
+      });
 
-    db.ref(`users/${userId}/points`).on("value", (snap) => {  
-      document.getElementById("pointsDisplay").textContent = `رصيدك: ${snap.val() || 0} 🎯`;  
-    });  
+      // إضافة الرسائل إلى DOM بعد تحميلها وترتيبها
+      messages.forEach(msg => {
+        addMessageToDOM(msg.key, msg.data);
+      });
 
-    db.ref(`rooms/${room}/users`).on("value", (snapshot) => {  
-      const list = document.getElementById("onlineList");  
-      list.innerHTML = "<strong>👥 الأعضاء:</strong><br><br>";  
-      snapshot.forEach((child) => {  
-        const user = child.val();  
-        const name = user.name || "مجهول";  
-        const online = user.online;  
-        const lastSeen = user.lastSeen || 0;  
-        const rank = user.rank || "beginner";  
+      // الانتقال لأسفل بعد تحميل كل الرسائل
+      document.getElementById("chat-box").scrollTop = document.getElementById("chat-box").scrollHeight;
+    });
 
-        let line = `• ${name} ${getRankImg(rank)} `;  
-        if (online) {  
-          line += "🟢";  
-        } else {  
-          const diff = Date.now() - lastSeen;  
-          const minutes = Math.floor(diff / 60000);  
-          if (minutes < 1) line += "⭕ منذ لحظات";  
-          else if (minutes < 60) line += `⭕ منذ ${minutes} دقيقة`;  
-          else line += `⭕ منذ ${Math.floor(minutes / 60)} ساعة`;  
-        }  
+    // 2. استخدام "child_added" فقط للرسائل الجديدة بعد التحميل الأولي
+    db.ref("rooms/" + room + "/messages").on("child_added", (snapshot) => {
+      const data = snapshot.val();
+      const key = snapshot.key;
+      // نتأكد من أن الرسالة لم يتم عرضها مسبقاً
+      if (!document.getElementById(key)) {
+        addMessageToDOM(key, data);
+      }
+    });
 
-        list.innerHTML += `${line}<br>`;  
-      });  
-    });  
+    db.ref("rooms/" + room + "/messages").on("child_changed", (snapshot) => {
+      const data = snapshot.val();
+      const key = snapshot.key;
+      updateMessageInDOM(key, data);
+    });
 
-    db.ref("rooms/" + room + "/messages").push({  
-      name: "🚪 النظام",  
-      message: `📢 لقد انضم ${name}`,  
-      time: new Date().toLocaleTimeString(),  
-      system: true,  
-    });  
-  }  
+    db.ref("rooms/" + room + "/messages").on("child_removed", (snapshot) => {
+      const key = snapshot.key;
+      removeMessageFromDOM(key);
+    });
 
-  function editMessage(msgKey) {  
-    const msgRef = db.ref(`rooms/${currentRoom}/messages/${msgKey}`);  
-    msgRef.once("value").then((snapshot) => {  
-      const data = snapshot.val();  
-      if (data.userId !== userId) {  
-        alert("لا يمكنك تعديل رسالة ليست لك!");  
-        return;  
-      }  
+    db.ref(`users/${userId}/points`).on("value", (snap) => {
+      document.getElementById("pointsDisplay").textContent = `رصيدك: ${snap.val() || 0} 🎯`;
+    });
 
-      const newMessage = prompt("عدل رسالتك:", data.message);  
-      if (newMessage !== null) {  
-        msgRef.update({ message: newMessage });  
-      }  
-    });  
-  }  
+    db.ref(`rooms/${room}/users`).on("value", (snapshot) => {
+      const list = document.getElementById("onlineList");
+      list.innerHTML = "<strong>👥 الأعضاء:</strong><br><br>";
+      snapshot.forEach((child) => {
+        const user = child.val();
+        const name = user.name || "مجهول";
+        const online = user.online;
+        const lastSeen = user.lastSeen || 0;
+        const rank = user.rank || "beginner";
 
-  function deleteMessage(msgKey) {  
-    if (!confirm("هل أنت متأكد من حذف هذه الرسالة؟")) return;  
+        let line = `• ${name} ${getRankImg(rank)} `;
+        if (online) {
+          line += "🟢";
+        } else {
+          const diff = Date.now() - lastSeen;
+          const minutes = Math.floor(diff / 60000);
+          if (minutes < 1) line += "⭕ منذ لحظات";
+          else if (minutes < 60) line += `⭕ منذ ${minutes} دقيقة`;
+          else line += `⭕ منذ ${Math.floor(minutes / 60)} ساعة`;
+        }
 
-    const msgRef = db.ref(`rooms/${currentRoom}/messages/${msgKey}`);  
-    msgRef.once("value").then((snapshot) => {  
-      const data = snapshot.val();  
-      if (data.userId !== userId) {  
-        alert("لا يمكنك حذف رسالة ليست لك!");  
-        return;  
-      }  
-      msgRef.remove();  
-    });  
-  }  
+        list.innerHTML += `${line}<br>`;
+      });
+    });
 
-  function sendGift(toUser) {  
-    const emoji = prompt("اختر هدية: 🌹 🎉 💎 🏆");  
-    if (!giftPrices[emoji]) return alert("❌ هدية غير صحيحة");  
+    // رسالة نظام عند الانضمام
+    db.ref("rooms/" + room + "/messages").push({
+      name: "🚪 النظام",
+      message: `📢 لقد انضم ${name}`,
+      // استخدام toLocaleString لتضمين التاريخ والوقت معًا
+      time: new Date().toLocaleString(),
+      timestamp: firebase.database.ServerValue.TIMESTAMP,
+      system: true,
+    });
+  }
 
-    const userPointsRef = db.ref(`users/${userId}/points`);  
-    userPointsRef.once("value", (snap) => {  
-      const currentPoints = snap.val() || 0;  
-      const cost = giftPrices[emoji];  
-      if (currentPoints < cost) return alert("❌ لا تملك نقاط كافية!");  
+  function editMessage(msgKey) {
+    const msgRef = db.ref(`rooms/${currentRoom}/messages/${msgKey}`);
+    msgRef.once("value").then((snapshot) => {
+      const data = snapshot.val();
+      if (data.userId !== userId) {
+        alert("لا يمكنك تعديل رسالة ليست لك!");
+        return;
+      }
 
-      userPointsRef.set(currentPoints - cost);  
+      const newMessage = prompt("عدل رسالتك:", data.message);
+      if (newMessage !== null) {
+        msgRef.update({ message: newMessage });
+      }
+    });
+  }
 
-      db.ref("users")  
-        .once("value")  
-        .then((snapshot) => {  
-          snapshot.forEach((child) => {  
-            const data = child.val();  
-            if (data.name === toUser) {  
-              const receiverRef = db.ref(`users/${child.key}/points`);  
-              receiverRef.once("value", (snap2) => {  
-                const receiverPoints = snap2.val() || 0;  
-                receiverRef.set(receiverPoints + cost);  
-              });  
-            }  
-          });  
-        });  
+  function deleteMessage(msgKey) {
+    if (!confirm("هل أنت متأكد من حذف هذه الرسالة؟")) return;
 
-      db.ref("rooms/" + currentRoom + "/messages").push({  
-        name: "🎁 هدية",  
-        message: `${currentUser} أرسل ${emoji} إلى ${toUser}`,  
-        time: new Date().toLocaleTimeString(),  
-        system: true,  
-      });  
-    });  
-  }  
+    const msgRef = db.ref(`rooms/${currentRoom}/messages/${msgKey}`);
+    msgRef.once("value").then((snapshot) => {
+      const data = snapshot.val();
+      if (data.userId !== userId) {
+        alert("لا يمكنك حذف رسالة ليست لك!");
+        return;
+      }
+      msgRef.remove();
+    });
+  }
 
-  function addReaction(msgKey, emoji) {  
-    const ref = db.ref(`rooms/${currentRoom}/messages/${msgKey}/reactions/${emoji}`);  
-    ref.once("value", (snapshot) => {  
-      const users = snapshot.val() || [];  
-      if (users.includes(currentUser)) {  
-        ref.set(users.filter((u) => u !== currentUser));  
-      } else {  
-        ref.set([...users, currentUser]);  
-      }  
-    });  
-  }  
+  function sendGift(toUser) {
+    const emoji = prompt("اختر هدية: 🌹 🎉 💎 🏆");
+    if (!giftPrices[emoji]) return alert("❌ هدية غير صحيحة");
 
-  function showEmojiPicker(target, msgKey) {  
-    let picker = document.createElement("div");  
-    picker.className = "emoji-picker";  
-    ["❤️", "😂", "👍", "👎", "😮", "😢"].forEach((e) => {  
-      let span = document.createElement("span");  
-      span.textContent = e;  
-      span.onclick = () => {  
-        addReaction(msgKey, e);  
-        document.body.removeChild(picker);  
-      };  
-      picker.appendChild(span);  
-    });  
-    document.body.appendChild(picker);  
-    picker.style.left = target.getBoundingClientRect().left + "px";  
-    picker.style.top = target.getBoundingClientRect().top - 40 + "px";  
-    picker.style.display = "block";  
-  }  
+    const userPointsRef = db.ref(`users/${userId}/points`);
+    userPointsRef.once("value", (snap) => {
+      const currentPoints = snap.val() || 0;
+      const cost = giftPrices[emoji];
+      if (currentPoints < cost) return alert("❌ لا تملك نقاط كافية!");
 
-  function startCall() {  
-    const room = document.getElementById("room").value.trim();  
-    if (room) window.open("https://meet.jit.si/" + room, "_blank");  
-  }  
+      userPointsRef.set(currentPoints - cost);
 
-  function startVoiceCall() {  
-    const room = document.getElementById("room").value.trim();  
-    if (room) window.open("https://meet.jit.si/" + room + "-voice", "_blank");  
-  }  
+      db.ref("users")
+        .once("value")
+        .then((snapshot) => {
+          snapshot.forEach((child) => {
+            const data = child.val();
+            if (data.name === toUser) {
+              const receiverRef = db.ref(`users/${child.key}/points`);
+              receiverRef.once("value", (snap2) => {
+                const receiverPoints = snap2.val() || 0;
+                receiverRef.set(receiverPoints + cost);
+              });
+            }
+          });
+        });
 
-  window.addEventListener("beforeunload", function () {  
-    const roomCode = localStorage.getItem("roomCode");  
-    const userName = localStorage.getItem("userName");  
-    if (roomCode && userName && userRef) {  
-      db.ref("rooms/" + roomCode + "/messages").push({  
-        name: "🚪 النظام",  
-        message: `🚪 لقد غادر ${userName}`,  
-        time: new Date().toLocaleTimeString(),  
-        system: true,  
-      });  
-      userRef.update({  
-        online: false,  
-        lastSeen: firebase.database.ServerValue.TIMESTAMP,  
-      });  
-    }  
-  });  
+      db.ref("rooms/" + currentRoom + "/messages").push({
+        name: "🎁 هدية",
+        message: `${currentUser} أرسل ${emoji} إلى ${toUser}`,
+        // استخدام toLocaleString لتضمين التاريخ والوقت معًا
+        time: new Date().toLocaleString(),
+        timestamp: firebase.database.ServerValue.TIMESTAMP,
+        system: true,
+      });
+    });
+  }
+
+  function addReaction(msgKey, emoji) {
+    const ref = db.ref(`rooms/${currentRoom}/messages/${msgKey}/reactions/${emoji}`);
+    ref.once("value", (snapshot) => {
+      const users = snapshot.val() || [];
+      if (users.includes(currentUser)) {
+        ref.set(users.filter((u) => u !== currentUser));
+      } else {
+        ref.set([...users, currentUser]);
+      }
+    });
+  }
+
+  function showEmojiPicker(target, msgKey) {
+    let picker = document.createElement("div");
+    picker.className = "emoji-picker";
+    ["❤️", "😂", "👍", "👎", "😮", "😢"].forEach((e) => {
+      let span = document.createElement("span");
+      span.textContent = e;
+      span.onclick = () => {
+        addReaction(msgKey, e);
+        document.body.removeChild(picker);
+      };
+      picker.appendChild(span);
+    });
+    document.body.appendChild(picker);
+    picker.style.left = target.getBoundingClientRect().left + "px";
+    picker.style.top = target.getBoundingClientRect().top - 40 + "px";
+    picker.style.display = "block";
+  }
+
+  function startCall() {
+    const room = document.getElementById("room").value.trim();
+    if (room) window.open("https://meet.jit.si/" + room, "_blank");
+  }
+
+  function startVoiceCall() {
+    const room = document.getElementById("room").value.trim();
+    if (room) window.open("https://meet.jit.si/" + room + "-voice", "_blank");
+  }
+
+  window.addEventListener("beforeunload", function () {
+    const roomCode = localStorage.getItem("roomCode");
+    const userName = localStorage.getItem("userName");
+    if (roomCode && userName && userRef) {
+      db.ref("rooms/" + roomCode + "/messages").push({
+        name: "🚪 النظام",
+        message: `🚪 لقد غادر ${userName}`,
+        // استخدام toLocaleString لتضمين التاريخ والوقت معًا
+        time: new Date().toLocaleString(),
+        timestamp: firebase.database.ServerValue.TIMESTAMP,
+        system: true,
+      });
+      userRef.update({
+        online: false,
+        lastSeen: firebase.database.ServerValue.TIMESTAMP,
+      });
+    }
+  });
 </script></body>
 </html>
