@@ -425,6 +425,7 @@
       reactions: {},
     });
     document.getElementById("message").value = "";
+    userRef.update({ isTyping: false });
   }
 
   function joinRoom() {
@@ -448,8 +449,8 @@
         }
       });
 
-    // إضافة المستخدم في الغرفة
-    userRef.set({ name: currentUser, online: true, lastSeen: now, rank: "beginner" });
+    // إضافة المستخدم في الغرفة **(تم تعديل هذا السطر)**
+    userRef.set({ name: currentUser, online: true, isTyping: false, lastSeen: now, rank: "beginner" });
     userRef.onDisconnect().update({
       online: false,
       lastSeen: firebase.database.ServerValue.TIMESTAMP,
@@ -493,15 +494,18 @@
         const lastSeen = user.lastSeen || 0;
         const rank = user.rank || "beginner";
 
+        // **(تم تعديل هذا الجزء لعرض حالة "يكتب الآن")**
         let line = `• ${name} ${getRankImg(rank)} `;
-        if (online) {
-          line += "🟢";
+        if (user.isTyping) {
+            line += "✍️ يكتب الآن";
+        } else if (online) {
+            line += "🟢";
         } else {
-          const diff = Date.now() - lastSeen;
-          const minutes = Math.floor(diff / 60000);
-          if (minutes < 1) line += "⭕ منذ لحظات";
-          else if (minutes < 60) line += `⭕ منذ ${minutes} دقيقة`;
-          else line += `⭕ منذ ${Math.floor(minutes / 60)} ساعة`;
+            const diff = Date.now() - lastSeen;
+            const minutes = Math.floor(diff / 60000);
+            if (minutes < 1) line += "⭕ منذ لحظات";
+            else if (minutes < 60) line += `⭕ منذ ${minutes} دقيقة`;
+            else line += `⭕ منذ ${Math.floor(minutes / 60)} ساعة`;
         }
 
         list.innerHTML += `${line}<br>`;
@@ -642,6 +646,25 @@
       });
     }
   });
+
+  // **(تم إضافة هذا الجزء لكشف الكتابة)**
+  let typingTimeout = null;
+
+  document.getElementById("message").addEventListener("input", () => {
+      if (userRef && currentUser) {
+          // إرسال إشعار بأن المستخدم بيكتب
+          userRef.update({ isTyping: true });
+
+          // مسح الـtimer القديم لو كان موجود
+          clearTimeout(typingTimeout);
+
+          // عمل timer جديد عشان نوقف الإشعار بعد ثانية واحدة من التوقف عن الكتابة
+          typingTimeout = setTimeout(() => {
+              userRef.update({ isTyping: false });
+          }, 1000);
+      }
+  });
+
 </script>
 </body>
 </html>
