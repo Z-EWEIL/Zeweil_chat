@@ -30,7 +30,7 @@
       padding: 15px;
       margin: 15px 0;
       display: flex;
-      flex-direction: column;
+      flex-direction: column; /* تم تعديل هذا السطر ليعود للترتيب الطبيعي */
     }
     .message {
       max-width: 80%;
@@ -44,14 +44,14 @@
     .my-message {
       background-color: #0f0;
       color: #000;
-      align-self: flex-end;
-      border-bottom-right-radius: 0;
+      align-self: flex-end; /* تم تعديل هذا السطر لرسائل المستخدم تكون على اليمين */
+      border-bottom-right-radius: 0; /* تم تعديل هذا السطر لتكون الزاوية السفلية اليمنى مربعة */
     }
     .other-message {
       background-color: #333;
       color: #fff;
-      align-self: flex-start;
-      border-bottom-left-radius: 0;
+      align-self: flex-start; /* تم تعديل هذا السطر لرسائل الآخرين تكون على اليسار */
+      border-bottom-left-radius: 0; /* تم تعديل هذا السطر لتكون الزاوية السفلية اليسرى مربعة */
     }
     .sender {
       font-weight: bold;
@@ -165,7 +165,7 @@
       border-radius: 50%;
       cursor: pointer;
       box-shadow: 0 0 10px #0f0;
-      transition: background-color 0.3s ease, transform 0.2s ease;
+      transition: background-color 0.3s ease, transform: scale(1.1);
       z-index: 10000;
       text-decoration: none;
       display: flex;
@@ -198,7 +198,8 @@
   <input type="text" id="message" placeholder="💬 رسالتك" />
   <button onclick="sendMessage()">إرسال</button>
   <button onclick="startCall()">📹 مكالمة فيديو</button>
-  <button onclick="startVoiceCall()">📞 مكالمة صوتية</button><script>
+  <button onclick="startVoiceCall()">📞 مكالمة صوتية</button>
+<script>
   const firebaseConfig = {
     apiKey: "AIzaSyAlim9FOvDcMqTJWINoBCHk3k6DNXS-jTo",
     authDomain: "zeweil-chat.firebaseapp.com",
@@ -234,6 +235,19 @@
     list.style.display = list.style.display === "block" ? "none" : "block";
   };
 
+  // دالة لتنسيق الوقت والتاريخ
+  function formatDateTime(timestamp) {
+    const date = new Date(timestamp);
+    const year = date.getFullYear();
+    const month = (date.getMonth() + 1).toString().padStart(2, '0');
+    const day = date.getDate().toString().padStart(2, '0');
+    const hours = date.getHours().toString().padStart(2, '0');
+    const minutes = date.getMinutes().toString().padStart(2, '0');
+    const seconds = date.getSeconds().toString().padStart(2, '0');
+    return `التاريخ: ${day}/${month}/${year} | الوقت: ${hours}:${minutes}:${seconds}`;
+  }
+
+
   function getRankImg(rank) {
     if (!rank) return "";
     const baseRaw = "https://raw.githubusercontent.com/Z-EWEIL/Zeweil_chat/main/";
@@ -242,8 +256,10 @@
   }
 
   function addMessageToDOM(key, data) {
-    if(document.getElementById(key)) return;
-
+    if(document.getElementById(key)) {
+        return;
+    }
+    
     const msgDiv = document.createElement("div");
     msgDiv.id = key;
     msgDiv.classList.add("message");
@@ -275,7 +291,7 @@
       msgDiv.innerHTML = `
         <div class="sender">${data.name} ${rankImg}</div>
         <div class="message-content">${data.message}</div>
-        <div class="time">${data.time}</div>
+        <div class="time">${formatDateTime(data.timestamp)}</div>
       `;
 
       if (isMyMessage) {
@@ -348,7 +364,7 @@
       msgDiv.innerHTML = `
         <div class="sender">${data.name} ${rankImg}</div>
         <div class="message-content">${data.message}</div>
-        <div class="time">${data.time}</div>
+        <div class="time">${formatDateTime(data.timestamp)}</div>
       `;
 
       if (isMyMessage) {
@@ -403,7 +419,6 @@
     db.ref("rooms/" + currentRoom + "/messages").push({
       userId: userId, // إضافة userId هنا
       name: currentUser,
-      // استخدام toLocaleString لتضمين التاريخ والوقت معًا
       time: new Date().toLocaleString(),
       timestamp: firebase.database.ServerValue.TIMESTAMP,
       message: msg,
@@ -443,37 +458,14 @@
     localStorage.setItem("roomCode", currentRoom);
     localStorage.setItem("userName", currentUser);
 
-    // حذف المستمعين القدامى قبل إضافة الجدد
     db.ref("rooms/" + room + "/messages").off();
     document.getElementById("chat-box").innerHTML = "";
 
-    // 1. الحصول على جميع الرسائل مرة واحدة وترتيبها زمنياً
-    db.ref("rooms/" + room + "/messages").orderByChild("timestamp").once("value", (snapshot) => {
-      const messages = [];
-      snapshot.forEach((child) => {
-        messages.push({
-          key: child.key,
-          data: child.val()
-        });
-      });
-
-      // إضافة الرسائل إلى DOM بعد تحميلها وترتيبها
-      messages.forEach(msg => {
-        addMessageToDOM(msg.key, msg.data);
-      });
-
-      // الانتقال لأسفل بعد تحميل كل الرسائل
-      document.getElementById("chat-box").scrollTop = document.getElementById("chat-box").scrollHeight;
-    });
-
-    // 2. استخدام "child_added" فقط للرسائل الجديدة بعد التحميل الأولي
-    db.ref("rooms/" + room + "/messages").on("child_added", (snapshot) => {
+    // **التعديل هنا:** استخدم orderByChild("timestamp") لترتيب الرسائل بشكل صحيح
+    db.ref("rooms/" + room + "/messages").orderByChild("timestamp").on("child_added", (snapshot) => {
       const data = snapshot.val();
       const key = snapshot.key;
-      // نتأكد من أن الرسالة لم يتم عرضها مسبقاً
-      if (!document.getElementById(key)) {
-        addMessageToDOM(key, data);
-      }
+      addMessageToDOM(key, data);
     });
 
     db.ref("rooms/" + room + "/messages").on("child_changed", (snapshot) => {
@@ -520,7 +512,6 @@
     db.ref("rooms/" + room + "/messages").push({
       name: "🚪 النظام",
       message: `📢 لقد انضم ${name}`,
-      // استخدام toLocaleString لتضمين التاريخ والوقت معًا
       time: new Date().toLocaleString(),
       timestamp: firebase.database.ServerValue.TIMESTAMP,
       system: true,
@@ -587,7 +578,6 @@
       db.ref("rooms/" + currentRoom + "/messages").push({
         name: "🎁 هدية",
         message: `${currentUser} أرسل ${emoji} إلى ${toUser}`,
-        // استخدام toLocaleString لتضمين التاريخ والوقت معًا
         time: new Date().toLocaleString(),
         timestamp: firebase.database.ServerValue.TIMESTAMP,
         system: true,
@@ -642,7 +632,6 @@
       db.ref("rooms/" + roomCode + "/messages").push({
         name: "🚪 النظام",
         message: `🚪 لقد غادر ${userName}`,
-        // استخدام toLocaleString لتضمين التاريخ والوقت معًا
         time: new Date().toLocaleString(),
         timestamp: firebase.database.ServerValue.TIMESTAMP,
         system: true,
@@ -653,5 +642,6 @@
       });
     }
   });
-</script></body>
+</script>
+</body>
 </html>
