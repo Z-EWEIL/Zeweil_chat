@@ -39,6 +39,7 @@
           <th>تعديل النقاط</th>
           <th>الرتبة</th>
           <th>تعديل الرتبة</th>
+          <th>حالة الإشعارات</th>
           <th>حفظ التعديلات</th>
           <th>حذف المستخدم</th>
         </tr>
@@ -95,6 +96,8 @@
 
           const currentRank = user.rank || "beginner";
           const rankObj = ranks.find(r => r.en === currentRank) || ranks[0];
+          // بداية التعديل الجديد: الحصول على حالة الإشعارات الحالية للمستخدم
+          const notificationsEnabled = user.notificationsEnabled !== false;
 
           const row = document.createElement("tr");
           row.innerHTML = `
@@ -115,6 +118,9 @@
               </select>
             </td>
             <td>
+              <input type="checkbox" id="notif-${key}" ${notificationsEnabled ? "checked" : ""} />
+            </td>
+            <td>
               <button onclick="saveUserChanges('${key}')">💾</button>
             </td>
             <td>
@@ -129,6 +135,8 @@
     function saveUserChanges(uid) {
       const newPoints = parseInt(document.getElementById(`pts-${uid}`).value);
       const newRank = document.getElementById(`rankSelect-${uid}`).value;
+      // بداية التعديل الجديد: الحصول على قيمة مربع اختيار الإشعارات
+      const newNotificationsStatus = document.getElementById(`notif-${uid}`).checked;
 
       if (isNaN(newPoints) || newPoints < 0) {
         alert("❌ قيمة النقاط غير صالحة");
@@ -138,13 +146,15 @@
       const updates = {};
       updates[`users/${uid}/points`] = newPoints;
       updates[`users/${uid}/rank`] = newRank;
+      // بداية التعديل الجديد: إضافة حالة الإشعارات للتحديثات
+      updates[`users/${uid}/notificationsEnabled`] = newNotificationsStatus;
 
       db.ref().update(updates)
         .then(() => {
           // تحديث عرض الرتبة مع الصورة بعد الحفظ
           const rankObj = ranks.find(r => r.en === newRank) || ranks[0];
           document.getElementById(`rankDisplay-${uid}`).innerHTML = `${rankObj.ar} ${getRankImg(rankObj.en)}`;
-          alert("✅ تم تحديث النقاط والرتبة بنجاح");
+          alert("✅ تم تحديث بيانات المستخدم بنجاح");
         })
         .catch(() => alert("❌ حدث خطأ أثناء التحديث"));
     }
