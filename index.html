@@ -421,6 +421,7 @@
     }
   }
 
+  // بداية التعديل الجديد: تم إعادة بناء دالة sendMessage بالكامل
   function sendMessage() {
     const msg = document.getElementById("message").value.trim();
     if (!currentRoom || !currentUser || !msg) return;
@@ -434,11 +435,26 @@
       reactions: {},
     });
 
-    // بداية التعديل الجديد: التحقق من حالة الإشعارات للمستخدم
-    db.ref('users/' + userId).once('value', snapshot => {
-      const user = snapshot.val();
-      if (user && user.notificationsEnabled !== false) {
-        // إذا كانت الإشعارات مفعلة، قم بإرسال الإشعار
+    db.ref("rooms/" + currentRoom + "/users").once("value", (snapshot) => {
+      const recipientTokens = [];
+      snapshot.forEach((child) => {
+        const user = child.val();
+        const recipientUserId = child.key;
+
+        // التحقق من أن المستخدم ليس المرسل
+        if (recipientUserId !== userId) {
+          // التحقق من أن الإشعارات مفعلة وأن لديه توكن
+          db.ref(`users/${recipientUserId}`).once('value', userSnap => {
+            const userData = userSnap.val();
+            if (userData && userData.notificationsEnabled !== false && user.fcmToken) {
+              recipientTokens.push(user.fcmToken);
+            }
+          });
+        }
+      });
+      
+      // إرسال الإشعار إلى جميع المستخدمين المستهدفين في الغرفة
+      if (recipientTokens.length > 0) {
         OneSignal.push(function() {
           OneSignal.postNotification({
             contents: {
@@ -448,16 +464,17 @@
             headings: {
               'en': `New message in room #${currentRoom}`,
               'ar': `رسالة جديدة في غرفة #${currentRoom}`
-            }
+            },
+            include_player_ids: recipientTokens
           });
         });
       }
     });
-    // نهاية التعديل الجديد
 
     document.getElementById("message").value = "";
     userRef.update({ isTyping: false });
   }
+  // نهاية التعديل الجديد
 
   function joinRoom() {
     const room = document.getElementById("room").value.trim();
