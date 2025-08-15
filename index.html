@@ -6,6 +6,7 @@
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-messaging.js"></script>
   <style>
     body {
       background-color: #111;
@@ -30,7 +31,7 @@
       padding: 15px;
       margin: 15px 0;
       display: flex;
-      flex-direction: column; /* تم تعديل هذا السطر ليعود للترتيب الطبيعي */
+      flex-direction: column;
     }
     .message {
       max-width: 80%;
@@ -44,14 +45,14 @@
     .my-message {
       background-color: #0f0;
       color: #000;
-      align-self: flex-end; /* تم تعديل هذا السطر لرسائل المستخدم تكون على اليمين */
-      border-bottom-right-radius: 0; /* تم تعديل هذا السطر لتكون الزاوية السفلية اليمنى مربعة */
+      align-self: flex-end;
+      border-bottom-right-radius: 0;
     }
     .other-message {
       background-color: #333;
       color: #fff;
-      align-self: flex-start; /* تم تعديل هذا السطر لرسائل الآخرين تكون على اليسار */
-      border-bottom-left-radius: 0; /* تم تعديل هذا السطر لتكون الزاوية السفلية اليسرى مربعة */
+      align-self: flex-start;
+      border-bottom-left-radius: 0;
     }
     .sender {
       font-weight: bold;
@@ -153,7 +154,6 @@
       margin-left: 5px;
       vertical-align: middle;
     }
-    /* زر متجر الرتب ثابت في أعلى اليمين */
     #shopButton {
       position: fixed;
       top: 15px;
@@ -181,9 +181,7 @@
 <body>
   <div id="onlineToggle">👥</div>
   <div id="onlineList"></div>
-
   <a href="https://zeweil-chat.vercel.app/rank-shop.html" id="shopButton" title="متجر الرتب">🛒</a>
-
   <h2>🌐 ℤ 𝔼 𝕎 𝔼 𝕀 𝕃  ℂ ℍ 𝔸 𝕋</h2>
   <input type="text" id="room" placeholder="🛡️ كود الغرفة" />
   <input type="text" id="username" placeholder="🡩‍💬 اسمك" />
@@ -211,6 +209,7 @@
   };
   firebase.initializeApp(firebaseConfig);
   const db = firebase.database();
+  const messaging = firebase.messaging(); // إضافة هذا السطر
 
   let currentRoom = "";
   let currentUser = "";
@@ -417,7 +416,7 @@
     const msg = document.getElementById("message").value.trim();
     if (!currentRoom || !currentUser || !msg) return;
     db.ref("rooms/" + currentRoom + "/messages").push({
-      userId: userId, // إضافة userId هنا
+      userId: userId,
       name: currentUser,
       time: new Date().toLocaleString(),
       timestamp: firebase.database.ServerValue.TIMESTAMP,
@@ -438,7 +437,6 @@
     userRef = db.ref(`rooms/${room}/users/${userId}`);
     const now = Date.now();
 
-    // تحديث بيانات المستخدم العامة
     db.ref(`users/${userId}`)
       .once("value")
       .then((snapshot) => {
@@ -449,11 +447,20 @@
         }
       });
 
-    // إضافة المستخدم في الغرفة **(تم تعديل هذا السطر)**
+    // إضافة المستخدم في الغرفة
     userRef.set({ name: currentUser, online: true, isTyping: false, lastSeen: now, rank: "beginner" });
     userRef.onDisconnect().update({
       online: false,
       lastSeen: firebase.database.ServerValue.TIMESTAMP,
+    });
+
+    // طلب الـtoken وحفظه في قاعدة البيانات (الكود الجديد)
+    messaging.requestPermission().then(() => {
+        return messaging.getToken();
+    }).then((token) => {
+        userRef.update({ fcmToken: token });
+    }).catch((err) => {
+        console.error('An error occurred while retrieving token. ', err);
     });
 
     localStorage.setItem("roomCode", currentRoom);
@@ -462,7 +469,6 @@
     db.ref("rooms/" + room + "/messages").off();
     document.getElementById("chat-box").innerHTML = "";
 
-    // **التعديل هنا:** استخدم orderByChild("timestamp") لترتيب الرسائل بشكل صحيح
     db.ref("rooms/" + room + "/messages").orderByChild("timestamp").on("child_added", (snapshot) => {
       const data = snapshot.val();
       const key = snapshot.key;
@@ -494,7 +500,6 @@
         const lastSeen = user.lastSeen || 0;
         const rank = user.rank || "beginner";
 
-        // **(تم تعديل هذا الجزء لعرض حالة "يكتب الآن")**
         let line = `• ${name} ${getRankImg(rank)} `;
         if (user.isTyping) {
             line += "✍️ يكتب الآن";
@@ -647,18 +652,12 @@
     }
   });
 
-  // **(تم إضافة هذا الجزء لكشف الكتابة)**
   let typingTimeout = null;
 
   document.getElementById("message").addEventListener("input", () => {
       if (userRef && currentUser) {
-          // إرسال إشعار بأن المستخدم بيكتب
           userRef.update({ isTyping: true });
-
-          // مسح الـtimer القديم لو كان موجود
           clearTimeout(typingTimeout);
-
-          // عمل timer جديد عشان نوقف الإشعار بعد ثانية واحدة من التوقف عن الكتابة
           typingTimeout = setTimeout(() => {
               userRef.update({ isTyping: false });
           }, 1000);
