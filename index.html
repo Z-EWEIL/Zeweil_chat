@@ -421,7 +421,6 @@
     }
   }
 
-  // بداية التعديل الجديد: تم إعادة بناء دالة sendMessage بالكامل
   function sendMessage() {
     const msg = document.getElementById("message").value.trim();
     if (!currentRoom || !currentUser || !msg) return;
@@ -442,10 +441,8 @@
 
       if (roomUsers) {
         Object.keys(roomUsers).forEach((recipientUserId) => {
-          // نتحقق من أن المستخدم ليس هو المرسل نفسه
           if (recipientUserId !== userId) {
             const recipientUser = roomUsers[recipientUserId];
-            // نتحقق من أن الإشعارات مفعلة وأن لديه token
             if (recipientUser.notificationsEnabled !== false && recipientUser.fcmToken) {
               playerIds.push(recipientUser.fcmToken);
             }
@@ -473,8 +470,7 @@
     document.getElementById("message").value = "";
     userRef.update({ isTyping: false });
   }
-  // نهاية التعديل الجديد
-  
+
   function joinRoom() {
     const room = document.getElementById("room").value.trim();
     const name = document.getElementById("username").value.trim();
@@ -495,14 +491,12 @@
         }
       });
 
-    // إضافة المستخدم في الغرفة
     userRef.set({ name: currentUser, online: true, isTyping: false, lastSeen: now, rank: "beginner" });
     userRef.onDisconnect().update({
       online: false,
       lastSeen: firebase.database.ServerValue.TIMESTAMP,
     });
 
-    // طلب الـtoken وحفظه في قاعدة البيانات (الكود الجديد)
     messaging.requestPermission().then(() => {
         return messaging.getToken();
     }).then((token) => {
@@ -565,7 +559,6 @@
       });
     });
 
-    // رسالة نظام عند الانضمام
     db.ref("rooms/" + room + "/messages").push({
       name: "🚪 النظام",
       message: `📢 لقد انضم ${name}`,
@@ -710,8 +703,3 @@
               userRef.update({ isTyping: false });
           }, 1000);
       }
-  });
-
-</script>
-</body>
-</html>
