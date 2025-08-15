@@ -434,19 +434,26 @@
       reactions: {},
     });
 
-    // هذا هو الكود المُعدل لإرسال الإشعار
-    OneSignal.push(function() {
-      OneSignal.postNotification({
-        contents: {
-          'en': msg,
-          'ar': msg
-        },
-        headings: {
-          'en': `New message in room #${currentRoom}`,
-          'ar': `رسالة جديدة في غرفة #${currentRoom}`
-        }
-      });
+    // بداية التعديل الجديد: التحقق من حالة الإشعارات للمستخدم
+    db.ref('users/' + userId).once('value', snapshot => {
+      const user = snapshot.val();
+      if (user && user.notificationsEnabled !== false) {
+        // إذا كانت الإشعارات مفعلة، قم بإرسال الإشعار
+        OneSignal.push(function() {
+          OneSignal.postNotification({
+            contents: {
+              'en': msg,
+              'ar': msg
+            },
+            headings: {
+              'en': `New message in room #${currentRoom}`,
+              'ar': `رسالة جديدة في غرفة #${currentRoom}`
+            }
+          });
+        });
+      }
     });
+    // نهاية التعديل الجديد
 
     document.getElementById("message").value = "";
     userRef.update({ isTyping: false });
@@ -468,7 +475,9 @@
         if (snapshot.exists()) {
           db.ref(`users/${userId}`).update({ name: currentUser });
         } else {
-          db.ref(`users/${userId}`).set({ name: currentUser, points: 0 });
+          // بداية التعديل الجديد: إضافة حقل notificationsEnabled عند إنشاء المستخدم
+          db.ref(`users/${userId}`).set({ name: currentUser, points: 0, notificationsEnabled: true });
+          // نهاية التعديل الجديد
         }
       });
 
