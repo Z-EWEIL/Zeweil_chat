@@ -177,6 +177,16 @@
       transform: scale(1.1);
     }
   </style>
+
+  <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
+  <script>
+    window.OneSignalDeferred = window.OneSignalDeferred || [];
+    OneSignalDeferred.push(async function(OneSignal) {
+      await OneSignal.init({
+        appId: "cdf1cf05-b988-4319-8e96-506340c18abe",
+      });
+    });
+  </script>
 </head>
 <body>
   <div id="onlineToggle">👥</div>
