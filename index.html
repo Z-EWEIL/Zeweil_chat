@@ -426,7 +426,8 @@
     const msg = document.getElementById("message").value.trim();
     if (!currentRoom || !currentUser || !msg) return;
 
-    db.ref("rooms/" + currentRoom + "/messages").push({
+    const newMessageRef = db.ref("rooms/" + currentRoom + "/messages").push();
+    newMessageRef.set({
       userId: userId,
       name: currentUser,
       time: new Date().toLocaleString(),
@@ -436,36 +437,34 @@
     });
 
     db.ref("rooms/" + currentRoom + "/users").once("value", (snapshot) => {
-      const recipientTokens = [];
-      snapshot.forEach((child) => {
-        const user = child.val();
-        const recipientUserId = child.key;
+      const playerIds = [];
+      const roomUsers = snapshot.val();
 
-        // التحقق من أن المستخدم ليس المرسل
-        if (recipientUserId !== userId) {
-          // التحقق من أن الإشعارات مفعلة وأن لديه توكن
-          db.ref(`users/${recipientUserId}`).once('value', userSnap => {
-            const userData = userSnap.val();
-            if (userData && userData.notificationsEnabled !== false && user.fcmToken) {
-              recipientTokens.push(user.fcmToken);
+      if (roomUsers) {
+        Object.keys(roomUsers).forEach((recipientUserId) => {
+          // نتحقق من أن المستخدم ليس هو المرسل نفسه
+          if (recipientUserId !== userId) {
+            const recipientUser = roomUsers[recipientUserId];
+            // نتحقق من أن الإشعارات مفعلة وأن لديه token
+            if (recipientUser.notificationsEnabled !== false && recipientUser.fcmToken) {
+              playerIds.push(recipientUser.fcmToken);
             }
-          });
-        }
-      });
-      
-      // إرسال الإشعار إلى جميع المستخدمين المستهدفين في الغرفة
-      if (recipientTokens.length > 0) {
-        OneSignal.push(function() {
+          }
+        });
+      }
+
+      if (playerIds.length > 0) {
+        OneSignal.push(() => {
           OneSignal.postNotification({
             contents: {
-              'en': msg,
-              'ar': msg
+              'en': `رسالة جديدة من ${currentUser}: ${msg}`,
+              'ar': `رسالة جديدة من ${currentUser}: ${msg}`
             },
             headings: {
-              'en': `New message in room #${currentRoom}`,
-              'ar': `رسالة جديدة في غرفة #${currentRoom}`
+              'en': `دردشة ${currentRoom}`,
+              'ar': `دردشة ${currentRoom}`
             },
-            include_player_ids: recipientTokens
+            include_player_ids: playerIds
           });
         });
       }
@@ -475,7 +474,7 @@
     userRef.update({ isTyping: false });
   }
   // نهاية التعديل الجديد
-
+  
   function joinRoom() {
     const room = document.getElementById("room").value.trim();
     const name = document.getElementById("username").value.trim();
@@ -492,9 +491,7 @@
         if (snapshot.exists()) {
           db.ref(`users/${userId}`).update({ name: currentUser });
         } else {
-          // بداية التعديل الجديد: إضافة حقل notificationsEnabled عند إنشاء المستخدم
           db.ref(`users/${userId}`).set({ name: currentUser, points: 0, notificationsEnabled: true });
-          // نهاية التعديل الجديد
         }
       });
 
