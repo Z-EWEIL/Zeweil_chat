@@ -177,7 +177,6 @@
       transform: scale(1.1);
     }
   </style>
-
   <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
   <script>
     window.OneSignalDeferred = window.OneSignalDeferred || [];
@@ -433,6 +432,21 @@
       message: msg,
       reactions: {},
     });
+
+    // إضافة الكود الجديد لإرسال الإشعار
+    OneSignal.push(function() {
+      OneSignal.postNotification({
+        contents: {
+          'en': msg,
+          'ar': msg
+        },
+        headings: {
+          'en': currentUser,
+          'ar': currentUser
+        }
+      });
+    });
+
     document.getElementById("message").value = "";
     userRef.update({ isTyping: false });
   }
