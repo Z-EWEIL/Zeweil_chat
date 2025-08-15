@@ -218,7 +218,7 @@
   };
   firebase.initializeApp(firebaseConfig);
   const db = firebase.database();
-  const messaging = firebase.messaging(); // إضافة هذا السطر
+  const messaging = firebase.messaging(); 
 
   let currentRoom = "";
   let currentUser = "";
@@ -424,6 +424,7 @@
   function sendMessage() {
     const msg = document.getElementById("message").value.trim();
     if (!currentRoom || !currentUser || !msg) return;
+
     db.ref("rooms/" + currentRoom + "/messages").push({
       userId: userId,
       name: currentUser,
@@ -433,7 +434,7 @@
       reactions: {},
     });
 
-    // إضافة الكود الجديد لإرسال الإشعار
+    // هذا هو الكود المُعدل لإرسال الإشعار
     OneSignal.push(function() {
       OneSignal.postNotification({
         contents: {
@@ -441,8 +442,8 @@
           'ar': msg
         },
         headings: {
-          'en': currentUser,
-          'ar': currentUser
+          'en': `New message in room #${currentRoom}`,
+          'ar': `رسالة جديدة في غرفة #${currentRoom}`
         }
       });
     });
