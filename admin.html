@@ -173,21 +173,33 @@
       }
     }
 
-    // الدالة الجديدة لإرسال إشعار التحديث لجميع المستخدمين
+    // هذه هي الدالة الجديدة والمعدلة لإرسال إشعار داخلي في الموقع لجميع المستخدمين
     function notifyUpdate() {
-        OneSignal.push(() => {
-            OneSignal.postNotification({
-                contents: {
-                    en: "The site has been updated 🌐",
-                    ar: "تم تحديث الموقع 🌐"
-                },
-                headings: {
-                    en: "Site Update",
-                    ar: "تحديث الموقع"
-                },
-                targeted_segments: ["All"]
-            });
-            alert("تم إرسال إشعار التحديث لجميع المستخدمين.");
+        db.ref("users").once("value", (snapshot) => {
+            const users = snapshot.val();
+            if (users) {
+                const updates = {};
+                for (const userId in users) {
+                    updates[`users/${userId}/notifications`] = {
+                        [firebase.database().ref().push().key]: {
+                            senderName: "نظام",
+                            messageContent: "تم التحديث",
+                            roomCode: "عام",
+                            timestamp: firebase.database.ServerValue.TIMESTAMP,
+                            isRead: false,
+                        }
+                    };
+                }
+                
+                db.ref().update(updates).then(() => {
+                    alert("تم إرسال إشعار التحديث بنجاح لجميع المستخدمين.");
+                }).catch(error => {
+                    console.error("Error sending update notification:", error);
+                    alert("حدث خطأ أثناء إرسال الإشعار.");
+                });
+            } else {
+                alert("لا يوجد مستخدمون لإرسال الإشعار لهم.");
+            }
         });
     }
   </script>
