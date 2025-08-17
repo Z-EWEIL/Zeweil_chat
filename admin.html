@@ -17,7 +17,7 @@
   <style>
     body { background: #111; color: white; font-family: Tahoma; padding: 20px; }
     h2 { color: #0f0; }
-    input, button, select { padding: 8px; margin: 5px; border: none; border-radius: 5px; }
+    input, button, select, textarea { padding: 8px; margin: 5px; border: none; border-radius: 5px; width: 100%; }
     button { background: #0f0; color: #000; cursor: pointer; }
     table { width: 100%; border-collapse: collapse; margin-top: 15px; }
     th, td { border: 1px solid #333; padding: 10px; text-align: center; }
@@ -29,6 +29,12 @@
       vertical-align: middle;
       margin-left: 5px;
     }
+    .section {
+        background-color: #222;
+        padding: 15px;
+        border-radius: 8px;
+        margin-bottom: 20px;
+    }
   </style>
 </head>
 <body>
@@ -39,7 +45,14 @@
   </div>
   <div id="adminPanel" style="display:none;">
     <button onclick="loadUsers()">📥 تحميل المستخدمين</button>
-    <button onclick="notifyUpdate()">إرسال إشعار تحديث 🌐</button>
+
+    <div class="section">
+      <h3>إدارة رسالة الإشعار</h3>
+      <textarea id="systemMessageInput" rows="3" placeholder="اكتب رسالة الإشعار هنا..."></textarea>
+      <button onclick="saveSystemMessage()">💾 حفظ الرسالة</button>
+      <button onclick="notifyUpdate()">إرسال الإشعار لجميع المستخدمين 🌐</button>
+    </div>
+
     <table>
       <thead>
         <tr>
@@ -65,9 +78,8 @@
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
 
-    const correctPassword = "zeweil123"; // غيّرها لكلمة سر قوية خاصة بك
+    const correctPassword = "zeweil123";
 
-    // الرتب المتاحة بالإنجليزي مع اسم عربي مقابل
     const ranks = [
       {en: "beginner", ar: "مبتدئ"},
       {en: "intermediate", ar: "متوسط"},
@@ -90,6 +102,7 @@
         document.getElementById("login").style.display = "none";
         document.getElementById("adminPanel").style.display = "block";
         loadUsers();
+        loadSystemMessage(); // تحميل الرسالة المحفوظة عند الدخول
       } else {
         alert("❌ كلمة السر غير صحيحة!");
       }
@@ -103,7 +116,6 @@
         snapshot.forEach(child => {
           const user = child.val();
           const key = child.key;
-
           const currentRank = user.rank || "beginner";
           const rankObj = ranks.find(r => r.en === currentRank) || ranks[0];
           const notificationsEnabled = user.notificationsEnabled !== false;
@@ -173,33 +185,66 @@
       }
     }
 
-    // هذه هي الدالة الجديدة والمعدلة لإرسال إشعار داخلي في الموقع لجميع المستخدمين
+    // دالة لحفظ رسالة النظام في قاعدة البيانات
+    function saveSystemMessage() {
+        const message = document.getElementById('systemMessageInput').value.trim();
+        if (!message) {
+            alert("لا يمكنك حفظ رسالة فارغة.");
+            return;
+        }
+        db.ref('settings/systemMessage').set(message).then(() => {
+            alert("✅ تم حفظ الرسالة بنجاح!");
+        }).catch(error => {
+            console.error("Error saving message:", error);
+            alert("❌ حدث خطأ أثناء حفظ الرسالة.");
+        });
+    }
+
+    // دالة لتحميل الرسالة المحفوظة عند فتح لوحة الأدمن
+    function loadSystemMessage() {
+        db.ref('settings/systemMessage').once('value', snapshot => {
+            const message = snapshot.val();
+            if (message) {
+                document.getElementById('systemMessageInput').value = message;
+            }
+        });
+    }
+
+    // دالة إرسال الإشعار التي تستخدم الرسالة المحفوظة
     function notifyUpdate() {
-        db.ref("users").once("value", (snapshot) => {
-            const users = snapshot.val();
-            if (users) {
-                const updates = {};
-                for (const userId in users) {
-                    updates[`users/${userId}/notifications`] = {
-                        [firebase.database().ref().push().key]: {
+        db.ref('settings/systemMessage').once('value', snapshot => {
+            const message = snapshot.val();
+            if (!message) {
+                alert("لا توجد رسالة محفوظة لإرسالها.");
+                return;
+            }
+            
+            db.ref("users").once("value", (usersSnapshot) => {
+                const users = usersSnapshot.val();
+                if (users) {
+                    const updates = {};
+                    const notificationId = firebase.database().ref().push().key;
+                    for (const userId in users) {
+                        updates[`users/${userId}/notifications/${notificationId}`] = {
                             senderName: "نظام",
-                            messageContent: "تم التحديث",
+                            messageContent: message, // تم استخدام الرسالة المحفوظة
                             roomCode: "عام",
                             timestamp: firebase.database.ServerValue.TIMESTAMP,
                             isRead: false,
-                        }
-                    };
+                            type: "update"
+                        };
+                    }
+                    
+                    db.ref().update(updates).then(() => {
+                        alert("تم إرسال إشعار التحديث بنجاح لجميع المستخدمين.");
+                    }).catch(error => {
+                        console.error("Error sending update notification:", error);
+                        alert("❌ حدث خطأ أثناء إرسال الإشعار.");
+                    });
+                } else {
+                    alert("لا يوجد مستخدمون لإرسال الإشعار لهم.");
                 }
-                
-                db.ref().update(updates).then(() => {
-                    alert("تم إرسال إشعار التحديث بنجاح لجميع المستخدمين.");
-                }).catch(error => {
-                    console.error("Error sending update notification:", error);
-                    alert("حدث خطأ أثناء إرسال الإشعار.");
-                });
-            } else {
-                alert("لا يوجد مستخدمون لإرسال الإشعار لهم.");
-            }
+            });
         });
     }
   </script>
