@@ -137,7 +137,9 @@
                     }
                     return getRankValue(b.rank) - getRankValue(a.rank);
                 });
-                users.reverse();
+                // هذا هو الجزء الذي كان مفقودًا أو تم حذفه عن طريق الخطأ
+                users.reverse(); 
+
                 users.forEach((user, index) => {
                     const rankItem = document.createElement("div");
                     rankItem.classList.add("rank-item");
