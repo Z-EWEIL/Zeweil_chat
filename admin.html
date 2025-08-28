@@ -88,8 +88,13 @@
     .button-secondary:hover {
       background-color: #777;
     }
+    /* تعديلات على الجدول */
+    .table-container {
+        overflow-x: auto;
+    }
     table {
       width: 100%;
+      min-width: 800px; /* تحديد عرض أدنى للجدول لمنع القطع */
       border-collapse: collapse;
       margin-top: 15px;
     }
@@ -99,6 +104,7 @@
       text-align: center;
       vertical-align: middle;
       font-size: 0.9em;
+      white-space: nowrap; /* منع التفاف النص */
     }
     th {
       background: #333;
@@ -147,21 +153,23 @@
 
       <div class="card">
         <h3>إدارة المستخدمين</h3>
-        <table>
-          <thead>
-            <tr>
-              <th>#</th>
-              <th>الاسم</th>
-              <th>النقاط</th>
-              <th>تعديل النقاط</th>
-              <th>الرتبة</th>
-              <th>تعديل الرتبة</th>
-              <th>الإشعارات</th>
-              <th>الإجراءات</th>
-            </tr>
-          </thead>
-          <tbody id="userTable"></tbody>
-        </table>
+        <div class="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>الاسم</th>
+                <th>النقاط</th>
+                <th>تعديل النقاط</th>
+                <th>الرتبة</th>
+                <th>تعديل الرتبة</th>
+                <th>الإشعارات</th>
+                <th>الإجراءات</th>
+              </tr>
+            </thead>
+            <tbody id="userTable"></tbody>
+          </table>
+        </div>
       </div>
     </div>
   </div>
@@ -173,7 +181,7 @@
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
 
-    const correctPassword = "78789812"; // يفضل تغييرها لقيمة أكثر أمانًا
+    const correctPassword = "78789812";
 
     const ranks = [
       {en: "beginner", ar: "مبتدئ"},
