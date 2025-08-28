@@ -29,74 +29,80 @@
             padding: 20px;
             margin-top: 20px;
         }
-        #leaderboardList {
-            list-style: none;
-            padding: 0;
-            margin: 0;
+        /* New table styles */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: center;
         }
-        .leaderboard-item {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
+        th, td {
             padding: 12px;
             border-bottom: 1px solid #333;
-            transition: background-color 0.3s;
         }
-        .leaderboard-item:hover {
+        th {
             background-color: #333;
+            color: #ffc107;
+            font-size: 1.2em;
         }
-        .leaderboard-item:last-child {
-            border-bottom: none;
+        tr:hover {
+            background-color: #2a2a2a;
         }
-        .leaderboard-item .user-info {
-            display: flex;
-            align-items: center;
-        }
-        .leaderboard-item .rank-img {
+        /* End of new table styles */
+        .rank-img {
             width: 40px;
             height: 40px;
-            margin-right: 15px;
-            border-radius: 50%;
-        }
-        .leaderboard-item .name {
-            font-size: 1.2em;
-            font-weight: bold;
-            color: #f0f0f0;
-        }
-        .leaderboard-item .points {
-            font-weight: bold;
-            color: #0f0;
-            font-size: 1.1em;
-        }
-        .leaderboard-item.first-place {
-            background: #3e3e3e;
-            border: 2px solid #ffc107;
-            border-radius: 10px;
-            box-shadow: 0 0 15px #ffc107;
-        }
-        .leaderboard-item.first-place .name {
-            color: #ffc107;
+            margin: auto;
+            display: block;
         }
         .rank-number {
             font-size: 1.5em;
             font-weight: bold;
-            margin-right: 15px;
-            width: 30px;
-            text-align: center;
             color: #aaa;
         }
-        .leaderboard-item.first-place .rank-number {
-            color: #ffc107;
+        .name {
+            font-weight: bold;
+            color: #f0f0f0;
+        }
+        .points {
+            font-weight: bold;
+            color: #0f0;
+            font-size: 1.1em;
+        }
+        .first-place {
+            background: #3e3e3e;
+            border: 2px solid #ffc107;
+            box-shadow: 0 0 15px #ffc107;
+        }
+        .first-place th, .first-place td {
+            border-bottom: none;
+        }
+        .back-button {
+            position: fixed;
+            top: 15px;
+            left: 15px;
+            font-size: 2em;
+            text-decoration: none;
+            color: white;
         }
     </style>
 </head>
 <body>
-    <a href="https://dulcet-lily-7804e3.netlify.app/" style="position: fixed; top: 15px; left: 15px; font-size: 2em; text-decoration: none; color: white;">&larr;</a>
+    <a href="https://dulcet-lily-7804e3.netlify.app/" class="back-button">&larr;</a>
     <h2>🏆 لوحة صدارة ℤ𝔼𝕎𝔼𝕀𝕃</h2>
     <div id="leaderboardBox">
-        <ul id="leaderboardList">
-            <li>يتم التحميل...</li>
-        </ul>
+        <p style="text-align: center;">يتم التحميل...</p>
+        <table id="leaderboardTable" style="display: none;">
+            <thead>
+                <tr>
+                    <th>الترتيب</th>
+                    <th>الاسم</th>
+                    <th>الرتبة</th>
+                    <th>النقاط</th>
+                </tr>
+            </thead>
+            <tbody id="leaderboardBody">
+            </tbody>
+        </table>
     </div>
     <script>
         const firebaseConfig = {
@@ -111,7 +117,6 @@
         firebase.initializeApp(firebaseConfig);
         const db = firebase.database();
 
-        // دالة لجلب صورة الرتبة
         function getRankImg(rank) {
             if (!rank) return "";
             const baseRaw = "https://raw.githubusercontent.com/Z-EWEIL/Zeweil_chat/main/";
@@ -119,7 +124,6 @@
             return `${baseRaw}${filename}`;
         }
         
-        // دالة لإعطاء قيمة رقمية لكل رتبة لغرض الفرز
         function getRankValue(rank) {
             const ranks = {
                 "beginner": 1,
@@ -127,30 +131,43 @@
                 "pro": 3,
                 "master": 4,
                 "king": 5,
-                "z": 6 // تم إضافة هذه الرتبة
+                "z": 6
             };
             return ranks[rank.toLowerCase()] || 0;
         }
 
-        // دالة لجلب وعرض لوحة الصدارة
         function fetchLeaderboard() {
-            const leaderboardList = document.getElementById("leaderboardList");
+            const loadingText = document.querySelector("#leaderboardBox p");
+            const leaderboardTable = document.getElementById("leaderboardTable");
+            const leaderboardBody = document.getElementById("leaderboardBody");
             
             db.ref('users').once('value', (snapshot) => {
                 const users = [];
+                const pointsByUsername = {};
+
                 snapshot.forEach((child) => {
                     const userData = child.val();
-                    if (userData.name) {
-                        users.push({
-                            name: userData.name,
-                            rank: userData.rank || "beginner",
-                            points: userData.points || 0
-                        });
+                    const username = userData.name;
+                    const points = userData.points || 0;
+                    if (username) {
+                        if (pointsByUsername[username]) {
+                            pointsByUsername[username].points += points;
+                        } else {
+                            pointsByUsername[username] = {
+                                points: points,
+                                rank: userData.rank || "beginner"
+                            };
+                        }
                     }
                 });
+                
+                const sortedUsers = Object.keys(pointsByUsername).map(name => ({
+                    name: name,
+                    points: pointsByUsername[name].points,
+                    rank: pointsByUsername[name].rank
+                }));
 
-                // فرز المستخدمين: الرتبة أولاً ثم النقاط
-                users.sort((a, b) => {
+                sortedUsers.sort((a, b) => {
                     const rankA = getRankValue(a.rank);
                     const rankB = getRankValue(b.rank);
                     if (rankA !== rankB) {
@@ -159,34 +176,34 @@
                     return b.points - a.points;
                 });
 
-                const top5 = users.slice(0, 5);
-
-                leaderboardList.innerHTML = "";
-                if (top5.length === 0) {
-                    leaderboardList.innerHTML = "<li>لا يوجد مستخدمون لعرضهم.</li>";
+                const topUsers = sortedUsers.slice(0, 5);
+                
+                leaderboardBody.innerHTML = "";
+                if (topUsers.length === 0) {
+                    loadingText.textContent = "لا يوجد مستخدمون لعرضهم.";
+                    leaderboardTable.style.display = "none";
                     return;
                 }
 
-                top5.forEach((user, index) => {
-                    const li = document.createElement("li");
-                    li.classList.add("leaderboard-item");
+                loadingText.style.display = "none";
+                leaderboardTable.style.display = "table";
+
+                topUsers.forEach((user, index) => {
+                    const row = document.createElement("tr");
                     if (index === 0) {
-                        li.classList.add("first-place");
+                        row.classList.add("first-place");
                     }
-                    li.innerHTML = `
-                        <div class="user-info">
-                            <span class="rank-number">${index + 1}.</span>
-                            <img src="${getRankImg(user.rank)}" alt="${user.rank}" class="rank-img" />
-                            <span class="name">${user.name}</span>
-                        </div>
-                        <span class="points">${user.points} 🎯</span>
+                    row.innerHTML = `
+                        <td><span class="rank-number">${index + 1}.</span></td>
+                        <td><span class="name">${user.name}</span></td>
+                        <td><img src="${getRankImg(user.rank)}" alt="${user.rank}" class="rank-img" /></td>
+                        <td><span class="points">${user.points} 🎯</span></td>
                     `;
-                    leaderboardList.appendChild(li);
+                    leaderboardBody.appendChild(row);
                 });
             });
         }
         
-        // عند تحميل الصفحة، قم بجلب لوحة الصدارة
         window.onload = fetchLeaderboard;
     </script>
 </body>
