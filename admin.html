@@ -7,14 +7,14 @@
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
   <style>
     :root {
-      --bg-color: #0d0d0d; /* خلفية داكنة جداً */
-      --card-bg-color: #1a1a1a; /* خلفية أغمق للبطاقات */
+      --bg-color: #0d0d0d;
+      --card-bg-color: #1a1a1a;
       --text-color: #e0e0e0;
-      --primary-neon: #00ff00; /* أخضر نيون فاقع */
-      --secondary-neon: #00cc00; /* أخضر نيون أغمق قليلاً */
-      --accent-neon: #ccff00; /* لون أصفر نيون للتأكيد */
-      --border-color: #008000; /* حدود خضراء داكنة */
-      --shadow-neon: rgba(0, 255, 0, 0.4); /* هالة نيون خضراء */
+      --primary-neon: #00ff00;
+      --secondary-neon: #00cc00;
+      --accent-neon: #ccff00;
+      --border-color: #008000;
+      --shadow-neon: rgba(0, 255, 0, 0.4);
     }
     body {
       background: var(--bg-color);
@@ -39,7 +39,7 @@
       padding: 25px;
       border-radius: 12px;
       margin-bottom: 25px;
-      box-shadow: 0 0 20px var(--shadow-neon); /* هالة نيون */
+      box-shadow: 0 0 20px var(--shadow-neon);
       border: 1px solid var(--border-color);
       transition: all 0.3s ease;
     }
@@ -60,7 +60,7 @@
       margin: 10px 0;
       border: 1px solid var(--border-color);
       border-radius: 8px;
-      background: #000; /* خلفية سوداء للمدخلات */
+      background: #000;
       color: var(--text-color);
       font-size: 1em;
       box-sizing: border-box;
@@ -73,26 +73,25 @@
     }
     button {
       background: var(--primary-neon);
-      color: #000; /* نص أسود على الزر الأخضر */
+      color: #000;
       font-weight: bold;
       cursor: pointer;
       border: none;
       transition: background-color 0.3s ease, box-shadow 0.3s ease;
-      text-shadow: none; /* إزالة الظل من نص الزر */
+      text-shadow: none;
     }
     button:hover {
       background: var(--secondary-neon);
       box-shadow: 0 0 15px var(--shadow-neon);
     }
     .button-secondary {
-      background-color: #333; /* لون رمادي لزر التحميل */
+      background-color: #333;
       color: var(--text-color);
     }
     .button-secondary:hover {
       background-color: #555;
       box-shadow: none;
     }
-    /* تعديلات على الجدول */
     .table-container {
         overflow-x: auto;
     }
@@ -111,7 +110,7 @@
       white-space: nowrap;
     }
     th {
-      background: #222; /* خلفية رأس الجدول أغمق قليلاً */
+      background: #222;
       color: var(--primary-neon);
       text-shadow: 0 0 5px var(--shadow-neon);
     }
@@ -125,7 +124,7 @@
       width: 90px;
       text-align: center;
       padding: 8px;
-      background: #0d0d0d; /* خلفية أغمق للمدخلات داخل الجدول */
+      background: #0d0d0d;
       border-color: #006600;
     }
     img.rank-icon {
@@ -178,6 +177,36 @@
           </table>
         </div>
       </div>
+      
+      <div class="card">
+        <h3>🚫 إدارة التبنيـد</h3>
+        <p>قم بالتبنيد باستخدام UserId أو اسم المستخدم</p>
+        <input type="text" id="banUserInput" placeholder="أدخل UserID أو اسم المستخدم" />
+        <select id="banType">
+          <option value="permanent">تبنيد دائم</option>
+          <option value="temporary">تبنيد مؤقت</option>
+        </select>
+        <input type="number" id="banDuration" placeholder="المدة بالساعات (للتنبيد المؤقت)" style="display:none;" />
+        <button onclick="applyBan()">🚫 تبنيد المستخدم</button>
+        
+        <br/><br/>
+        
+        <h4>قائمة المستخدمين المبندين</h4>
+        <div class="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>المستخدم</th>
+                <th>نوع التبنيـد</th>
+                <th>ينتهي في</th>
+                <th>إجراء</th>
+              </tr>
+            </thead>
+            <tbody id="bannedUsersTable"></tbody>
+          </table>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -199,6 +228,15 @@
       {en: "z", ar: "زويل"}
     ];
 
+    document.getElementById("banType").addEventListener("change", function() {
+      const durationInput = document.getElementById("banDuration");
+      if (this.value === "temporary") {
+        durationInput.style.display = "block";
+      } else {
+        durationInput.style.display = "none";
+      }
+    });
+
     function getRankImg(rank) {
       if (!rank) return "";
       const baseRaw = "https://raw.githubusercontent.com/Z-EWEIL/Zeweil_chat/main/";
@@ -213,6 +251,7 @@
         document.getElementById("adminPanel").style.display = "block";
         loadUsers();
         loadSystemMessage();
+        loadBannedUsers();
       } else {
         alert("❌ كلمة السر غير صحيحة!");
       }
@@ -355,6 +394,111 @@
             });
         });
     }
+
+    // دوال إدارة التبنيد
+    function applyBan() {
+      const userIdOrName = document.getElementById("banUserInput").value.trim();
+      const banType = document.getElementById("banType").value;
+      const durationHours = parseInt(document.getElementById("banDuration").value);
+
+      if (!userIdOrName) {
+        alert("يجب إدخال UserID أو اسم المستخدم.");
+        return;
+      }
+      
+      const userIdPromise = getUserIdByName(userIdOrName);
+
+      userIdPromise.then(userId => {
+        if (!userId) {
+          alert("❌ المستخدم غير موجود أو اسم المستخدم غير دقيق. حاول إدخال الـ UserID مباشرة.");
+          return;
+        }
+
+        const banData = {
+          type: banType,
+          timestamp: firebase.database.ServerValue.TIMESTAMP
+        };
+
+        if (banType === "temporary") {
+          if (isNaN(durationHours) || durationHours <= 0) {
+            alert("يجب إدخال مدة التبنيد بالساعات.");
+            return;
+          }
+          banData.expires = Date.now() + (durationHours * 60 * 60 * 1000);
+        }
+
+        db.ref(`bans/${userId}`).set(banData)
+          .then(() => {
+            alert("✅ تم تبنيد المستخدم بنجاح.");
+            loadBannedUsers();
+          })
+          .catch(() => alert("❌ حدث خطأ أثناء التبنيد."));
+      });
+    }
+
+    function unbanUser(userId) {
+      if (confirm(`هل تريد رفع التبنيد عن هذا المستخدم؟`)) {
+        db.ref(`bans/${userId}`).remove()
+          .then(() => {
+            alert("✅ تم رفع التبنيد بنجاح.");
+            loadBannedUsers();
+          })
+          .catch(() => alert("❌ حدث خطأ أثناء رفع التبنيد."));
+      }
+    }
+
+    function loadBannedUsers() {
+      const table = document.getElementById("bannedUsersTable");
+      table.innerHTML = "<tr><td colspan='5'>يتم التحميل...</td></tr>";
+
+      db.ref("bans").once("value", snapshot => {
+        table.innerHTML = "";
+        const bans = snapshot.val();
+        if (!bans) {
+          table.innerHTML = "<tr><td colspan='5'>لا يوجد مستخدمون مبندون.</td></tr>";
+          return;
+        }
+        
+        let counter = 1;
+        for (const userId in bans) {
+          const ban = bans[userId];
+          let statusText = "";
+          let remainingTime = "";
+
+          if (ban.type === "permanent") {
+            statusText = "دائم";
+          } else {
+            const remaining = Math.max(0, ban.expires - Date.now());
+            const hours = Math.floor(remaining / (1000 * 60 * 60));
+            const minutes = Math.floor((remaining % (1000 * 60 * 60)) / (1000 * 60));
+            statusText = "مؤقت";
+            remainingTime = `(متبقي: ${hours} س, ${minutes} د)`;
+          }
+
+          const row = document.createElement("tr");
+          row.innerHTML = `
+            <td>${counter++}.</td>
+            <td>${userId.slice(0, 8)}...</td>
+            <td>${statusText}</td>
+            <td>${remainingTime}</td>
+            <td><button onclick="unbanUser('${userId}')">رفع التبنيـد</button></td>
+          `;
+          table.appendChild(row);
+        }
+      });
+    }
+
+    function getUserIdByName(name) {
+      return db.ref('users').orderByChild('name').equalTo(name).once('value')
+        .then(snapshot => {
+          if (snapshot.exists()) {
+            const userId = Object.keys(snapshot.val())[0];
+            return userId;
+          }
+          return null;
+        });
+    }
+
   </script>
 </body>
 </html>
