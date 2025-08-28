@@ -293,6 +293,7 @@
             <td>
               <button onclick="saveUserChanges('${key}')">💾</button>
               <button onclick="deleteUser('${key}', '${user.name || 'مجهول'}')">🗑️</button>
+              <button onclick="applyBanDirect('${key}')">🚫 تبنيد</button>
             </td>
           `;
           table.appendChild(row);
@@ -499,6 +500,35 @@
         });
     }
 
+    // دالة جديدة للتبنيد المباشر من الجدول
+    function applyBanDirect(userId) {
+      const banType = prompt("اختر نوع التبنيد:\n1. دائم (اكتب 'permanent')\n2. مؤقت (اكتب 'temporary')");
+
+      if (banType === "permanent") {
+        const banData = { type: "permanent", timestamp: firebase.database.ServerValue.TIMESTAMP };
+        db.ref(`bans/${userId}`).set(banData)
+          .then(() => {
+            alert("✅ تم تبنيد المستخدم بنجاح (دائم).");
+            loadBannedUsers();
+          })
+          .catch(() => alert("❌ حدث خطأ أثناء التبنيد."));
+      } else if (banType === "temporary") {
+        const durationHours = parseInt(prompt("أدخل مدة التبنيد بالساعات:"));
+        if (isNaN(durationHours) || durationHours <= 0) {
+          alert("❌ مدة التبنيد غير صالحة.");
+          return;
+        }
+        const banData = { type: "temporary", timestamp: firebase.database.ServerValue.TIMESTAMP, expires: Date.now() + (durationHours * 60 * 60 * 1000) };
+        db.ref(`bans/${userId}`).set(banData)
+          .then(() => {
+            alert("✅ تم تبنيد المستخدم بنجاح (مؤقت).");
+            loadBannedUsers();
+          })
+          .catch(() => alert("❌ حدث خطأ أثناء التبنيد."));
+      } else {
+        alert("تم إلغاء العملية أو نوع التبنيد غير صالح.");
+      }
+    }
   </script>
 </body>
 </html>
