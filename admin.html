@@ -5,70 +5,103 @@
   <title>لوحة المشرف - ZEWEIL Chat</title>
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
-  <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
-  <script>
-    window.OneSignalDeferred = window.OneSignalDeferred || [];
-    OneSignalDeferred.push(async function(OneSignal) {
-      await OneSignal.init({
-        appId: "cdf1cf05-b988-4319-8e96-506340c18abe",
-      });
-    });
-  </script>
   <style>
     body { background: #111; color: white; font-family: Tahoma; padding: 20px; }
-    h2 { color: #0f0; }
-    input, button, select, textarea { padding: 8px; margin: 5px; border: none; border-radius: 5px; width: 100%; }
-    button { background: #0f0; color: #000; cursor: pointer; }
+    h2 { color: #0f0; text-align: center; }
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+      background: #222;
+      padding: 20px;
+      border-radius: 10px;
+      box-shadow: 0 0 20px rgba(0,255,0,0.2);
+    }
+    input, button, select, textarea {
+      padding: 10px;
+      margin: 8px 0;
+      border: none;
+      border-radius: 5px;
+      width: 100%;
+      box-sizing: border-box;
+    }
+    button {
+      background: #0f0;
+      color: #000;
+      cursor: pointer;
+      font-weight: bold;
+    }
+    button:hover { background: #0c0; }
+    #login { text-align: center; }
+    #adminPanel { display: none; }
+    .section {
+      background-color: #333;
+      padding: 15px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+    }
+    .section h3 {
+      color: #0f0;
+      border-bottom: 2px solid #0f0;
+      padding-bottom: 5px;
+      margin-top: 0;
+    }
     table { width: 100%; border-collapse: collapse; margin-top: 15px; }
-    th, td { border: 1px solid #333; padding: 10px; text-align: center; }
-    th { background: #222; }
-    td input, td select { width: 80px; text-align: center; }
+    th, td { border: 1px solid #444; padding: 10px; text-align: center; vertical-align: middle; }
+    th { background: #1a1a1a; color: #0f0; }
+    tr:nth-child(even) { background-color: #2a2a2a; }
+    tr:hover { background-color: #444; }
+    td input, td select {
+      width: 100px;
+      text-align: center;
+      background: #1a1a1a;
+      color: white;
+      border: 1px solid #555;
+    }
     img.rank-icon {
       width: 40px;
       height: 40px;
       vertical-align: middle;
       margin-left: 5px;
     }
-    .section {
-        background-color: #222;
-        padding: 15px;
-        border-radius: 8px;
-        margin-bottom: 20px;
-    }
   </style>
 </head>
 <body>
-  <h2>🛡️ لوحة المشرف - ZEWEIL Chat</h2>
-  <div id="login">
-    <input type="password" id="adminPass" placeholder="🔐 كلمة سر المشرف" />
-    <button onclick="verifyPassword()">دخول</button>
-  </div>
-  <div id="adminPanel" style="display:none;">
-    <button onclick="loadUsers()">📥 تحميل المستخدمين</button>
-
-    <div class="section">
-      <h3>إدارة رسالة الإشعار</h3>
-      <textarea id="systemMessageInput" rows="3" placeholder="اكتب رسالة الإشعار هنا..."></textarea>
-      <button onclick="saveSystemMessage()">💾 حفظ الرسالة</button>
-      <button onclick="notifyUpdate()">إرسال الإشعار لجميع المستخدمين 🌐</button>
+  <div class="container">
+    <h2>🛡️ لوحة المشرف - ZEWEIL Chat</h2>
+    <div id="login">
+      <input type="password" id="adminPass" placeholder="🔐 كلمة سر المشرف" />
+      <button onclick="verifyPassword()">دخول</button>
     </div>
+    <div id="adminPanel">
+      <button onclick="loadUsers()">📥 تحميل المستخدمين</button>
 
-    <table>
-      <thead>
-        <tr>
-          <th>userId</th>
-          <th>الاسم</th>
-          <th>النقاط</th>
-          <th>تعديل النقاط</th>
-          <th>الرتبة</th>
-          <th>تعديل الرتبة</th>
-          <th>حالة الإشعارات</th>
-          <th>حفظ التعديلات</th>
-          <th>حذف المستخدم</th>
-        </tr>
-      </thead>
-      <tbody id="userTable"></tbody>
-    </table>
+      <div class="section">
+        <h3>إدارة رسالة الإشعار</h3>
+        <textarea id="systemMessageInput" rows="3" placeholder="اكتب رسالة الإشعار هنا..."></textarea>
+        <button onclick="saveSystemMessage()">💾 حفظ الرسالة</button>
+        <button onclick="notifyUpdate()">إرسال الإشعار لجميع المستخدمين 🌐</button>
+      </div>
+
+      <div class="section">
+        <h3>إدارة المستخدمين</h3>
+        <table>
+          <thead>
+            <tr>
+              <th>userId</th>
+              <th>الاسم</th>
+              <th>النقاط</th>
+              <th>تعديل النقاط</th>
+              <th>الرتبة</th>
+              <th>تعديل الرتبة</th>
+              <th>حالة الإشعارات</th>
+              <th>حفظ التعديلات</th>
+              <th>حذف المستخدم</th>
+            </tr>
+          </thead>
+          <tbody id="userTable"></tbody>
+        </table>
+      </div>
+    </div>
   </div>
 
   <script>
@@ -78,7 +111,7 @@
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
 
-    const correctPassword = "zeweil123";
+    const correctPassword = "78789812";
 
     const ranks = [
       {en: "beginner", ar: "مبتدئ"},
@@ -102,7 +135,7 @@
         document.getElementById("login").style.display = "none";
         document.getElementById("adminPanel").style.display = "block";
         loadUsers();
-        loadSystemMessage(); // تحميل الرسالة المحفوظة عند الدخول
+        loadSystemMessage();
       } else {
         alert("❌ كلمة السر غير صحيحة!");
       }
@@ -180,12 +213,14 @@
     function deleteUser(uid, name) {
       if (confirm(`هل تريد حذف المستخدم ${name}؟`)) {
         db.ref(`users/${uid}`).remove()
-          .then(() => alert("✅ تم حذف المستخدم"))
+          .then(() => {
+            alert("✅ تم حذف المستخدم");
+            loadUsers();
+          })
           .catch(() => alert("❌ حدث خطأ أثناء حذف المستخدم"));
       }
     }
 
-    // دالة لحفظ رسالة النظام في قاعدة البيانات
     function saveSystemMessage() {
         const message = document.getElementById('systemMessageInput').value.trim();
         if (!message) {
@@ -200,7 +235,6 @@
         });
     }
 
-    // دالة لتحميل الرسالة المحفوظة عند فتح لوحة الأدمن
     function loadSystemMessage() {
         db.ref('settings/systemMessage').once('value', snapshot => {
             const message = snapshot.val();
@@ -210,7 +244,6 @@
         });
     }
 
-    // دالة إرسال الإشعار التي تستخدم الرسالة المحفوظة
     function notifyUpdate() {
         db.ref('settings/systemMessage').once('value', snapshot => {
             const message = snapshot.val();
@@ -227,7 +260,7 @@
                     for (const userId in users) {
                         updates[`users/${userId}/notifications/${notificationId}`] = {
                             senderName: "نظام",
-                            messageContent: message, // تم استخدام الرسالة المحفوظة
+                            messageContent: message,
                             roomCode: "عام",
                             timestamp: firebase.database.ServerValue.TIMESTAMP,
                             isRead: false,
