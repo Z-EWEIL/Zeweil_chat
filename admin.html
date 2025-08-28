@@ -7,14 +7,14 @@
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
   <style>
     :root {
-      --bg-color: #1a1a1a;
-      --card-bg-color: #2a2a2a;
+      --bg-color: #0d0d0d; /* خلفية داكنة جداً */
+      --card-bg-color: #1a1a1a; /* خلفية أغمق للبطاقات */
       --text-color: #e0e0e0;
-      --primary-color: #00ff99; /* لون أخضر فاقع للتأكيد */
-      --secondary-color: #ffcc00; /* لون ذهبي للتحذير */
-      --error-color: #ff3366; /* لون أحمر للأخطاء */
-      --border-color: #3e3e3e;
-      --shadow-color: rgba(0, 255, 153, 0.2);
+      --primary-neon: #00ff00; /* أخضر نيون فاقع */
+      --secondary-neon: #00cc00; /* أخضر نيون أغمق قليلاً */
+      --accent-neon: #ccff00; /* لون أصفر نيون للتأكيد */
+      --border-color: #008000; /* حدود خضراء داكنة */
+      --shadow-neon: rgba(0, 255, 0, 0.4); /* هالة نيون خضراء */
     }
     body {
       background: var(--bg-color);
@@ -28,30 +28,31 @@
       margin: 0 auto;
     }
     h2 {
-      color: var(--primary-color);
+      color: var(--primary-neon);
       text-align: center;
       font-size: 2.5em;
       margin-bottom: 30px;
-      text-shadow: 0 0 10px var(--shadow-color);
+      text-shadow: 0 0 15px var(--shadow-neon);
     }
     .card {
       background-color: var(--card-bg-color);
       padding: 25px;
       border-radius: 12px;
       margin-bottom: 25px;
-      box-shadow: 0 5px 20px rgba(0, 0, 0, 0.3);
+      box-shadow: 0 0 20px var(--shadow-neon); /* هالة نيون */
       border: 1px solid var(--border-color);
       transition: all 0.3s ease;
     }
     .card:hover {
       transform: translateY(-5px);
-      box-shadow: 0 8px 25px rgba(0, 0, 0, 0.4);
+      box-shadow: 0 0 30px var(--shadow-neon);
     }
     h3 {
-      color: var(--secondary-color);
-      border-bottom: 2px solid var(--secondary-color);
+      color: var(--accent-neon);
+      border-bottom: 2px solid var(--accent-neon);
       padding-bottom: 10px;
       margin-top: 0;
+      text-shadow: 0 0 8px rgba(204, 255, 0, 0.3);
     }
     input, button, select, textarea {
       width: 100%;
@@ -59,7 +60,7 @@
       margin: 10px 0;
       border: 1px solid var(--border-color);
       border-radius: 8px;
-      background: #111;
+      background: #000; /* خلفية سوداء للمدخلات */
       color: var(--text-color);
       font-size: 1em;
       box-sizing: border-box;
@@ -67,26 +68,29 @@
     }
     input:focus, textarea:focus {
       outline: none;
-      border-color: var(--primary-color);
-      box-shadow: 0 0 5px var(--primary-color);
+      border-color: var(--primary-neon);
+      box-shadow: 0 0 8px var(--primary-neon);
     }
     button {
-      background: var(--primary-color);
-      color: #000;
+      background: var(--primary-neon);
+      color: #000; /* نص أسود على الزر الأخضر */
       font-weight: bold;
       cursor: pointer;
       border: none;
-      transition: background-color 0.3s ease;
+      transition: background-color 0.3s ease, box-shadow 0.3s ease;
+      text-shadow: none; /* إزالة الظل من نص الزر */
     }
     button:hover {
-      background: #00cc88;
+      background: var(--secondary-neon);
+      box-shadow: 0 0 15px var(--shadow-neon);
     }
     .button-secondary {
-      background-color: #555;
+      background-color: #333; /* لون رمادي لزر التحميل */
       color: var(--text-color);
     }
     .button-secondary:hover {
-      background-color: #777;
+      background-color: #555;
+      box-shadow: none;
     }
     /* تعديلات على الجدول */
     .table-container {
@@ -94,7 +98,7 @@
     }
     table {
       width: 100%;
-      min-width: 800px; /* تحديد عرض أدنى للجدول لمنع القطع */
+      min-width: 800px;
       border-collapse: collapse;
       margin-top: 15px;
     }
@@ -104,22 +108,25 @@
       text-align: center;
       vertical-align: middle;
       font-size: 0.9em;
-      white-space: nowrap; /* منع التفاف النص */
+      white-space: nowrap;
     }
     th {
-      background: #333;
-      color: var(--primary-color);
+      background: #222; /* خلفية رأس الجدول أغمق قليلاً */
+      color: var(--primary-neon);
+      text-shadow: 0 0 5px var(--shadow-neon);
     }
     tr:nth-child(even) {
-      background-color: #222;
+      background-color: #1a1a1a;
     }
     tr:hover {
-      background-color: #444;
+      background-color: #333;
     }
     td input, td select {
       width: 90px;
       text-align: center;
       padding: 8px;
+      background: #0d0d0d; /* خلفية أغمق للمدخلات داخل الجدول */
+      border-color: #006600;
     }
     img.rank-icon {
       width: 40px;
