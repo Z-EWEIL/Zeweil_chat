@@ -2,7 +2,7 @@
 <html lang="ar">
 <head>
   <meta charset="UTF-8" />
-  <title>متجر الرتب - ZEWEIL Chat</title>
+  <title>متجر الرتب - ZEWEIL STORE</title>
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
@@ -16,10 +16,22 @@
       align-items: center;
       padding: 20px;
     }
-    h2 {
-      color: #0f0;
-      margin-bottom: 20px;
+    /* تعديل تنسيق العنوان الرئيسي */
+    #store-title {
+        font-size: 2.5em; /* حجم الخط */
+        font-family: 'Times New Roman', serif; /* خط أكثر فخامة */
+        text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5); /* ظل للنص */
+        margin-bottom: 20px;
     }
+    
+    .gold-text {
+        color: gold; /* لون ذهبي */
+    }
+    
+    .bronze-text {
+        color: #cd7f32; /* لون برونزي */
+    }
+    
     .rank-card {
       background: linear-gradient(145deg, #1a1a1a, #222);
       border-radius: 10px;
@@ -72,7 +84,10 @@
   </style>
 </head>
 <body>
-  <h2>🎖️ متجر الرتب - ZEWEIL Chat</h2>
+  <h2 id="store-title">
+    <span class="gold-text">ℤ 𝔼 𝕎 𝔼 𝕀 𝕃</span>
+    <span class="bronze-text">𝕊 𝕋 𝕆 ℝ 𝔼</span>
+  </h2>
   <div id="pointsDisplay">رصيدك: 0 🎯</div>
   <div id="ranksContainer"></div>
 
