@@ -8,7 +8,11 @@
   <style>
     body { background: #111; color: white; font-family: Tahoma; padding: 20px; }
     h2 { color: #0f0; }
-    button { padding: 6px 12px; margin: 5px; border: none; border-radius: 5px; background: #0f0; color: #000; cursor: pointer; }
+    button { padding: 6px 12px; margin: 5px; border: none; border-radius: 5px; cursor: pointer; }
+    .btn-green { background: #0f0; color: #000; }
+    .btn-red { background: #f00; color: #fff; }
+    .btn-blue { background: #00f; color: #fff; }
+    .btn-orange { background: #ffa500; color: #000; }
     table { width: 100%; border-collapse: collapse; margin-top: 15px; }
     th, td { border: 1px solid #333; padding: 10px; text-align: center; vertical-align: middle; }
     th { background: #222; }
@@ -36,7 +40,8 @@
 </head>
 <body>
   <h2>🛠️ إدارة الغرف - ZEWEIL Chat</h2>
-  <button onclick="loadRooms()">📥 تحميل الغرف</button>
+  <button onclick="loadRooms()" class="btn-green">📥 تحميل الغرف</button>
+  <button onclick="createNewRoom()" class="btn-blue">➕ إنشاء غرفة جديدة</button>
   <table>
     <thead>
       <tr>
@@ -48,7 +53,6 @@
     <tbody id="roomTable"></tbody>
   </table>
 
-  <!-- مودال لعرض محتوى الغرفة -->
   <div id="roomModal" class="modal" style="display:none;">
     <div class="modal-content">
       <button class="close-btn" onclick="closeModal()">×</button>
@@ -102,17 +106,28 @@
         const roomName = child.key;
         const room = child.val();
 
+        // تحديد حالة الغرفة للعرض
+        let statusText = "غير محدد";
+        if (room.status === 'open') {
+          statusText = "مفتوحة ✅";
+        } else if (room.status === 'closed') {
+          statusText = "مغلقة 🛑";
+        } else if (room.status === 'membersOnly') {
+          statusText = "للأعضاء فقط 🔐";
+        }
+
         const row = document.createElement("tr");
         row.innerHTML = `
           <td>${roomName}</td>
-          <td>${room.active ? "مفتوحة" : "مقفولة"}</td>
+          <td>${statusText}</td>
           <td>
-            <button onclick="toggleRoom('${roomName}', ${room.active})">
-              ${room.active ? "🛑 إقفال الغرفة" : "✅ فتح الغرفة"}
-            </button>
-            <button onclick="sendSystemMessage('${roomName}')">📢 رسالة نظام</button>
-            <button onclick="deleteRoomMessages('${roomName}')">🗑️ حذف رسائل الغرفة</button>
-            <button onclick="openRoom('${roomName}')">👁️ عرض الغرفة</button>
+            <button onclick="toggleRoom('${roomName}', 'open')" class="btn-green">✅ فتح الغرفة</button>
+            <button onclick="toggleRoom('${roomName}', 'closed')" class="btn-red">🛑 إغلاق للجميع</button>
+            <button onclick="toggleRoom('${roomName}', 'membersOnly')" class="btn-orange">🔐 إغلاق للأعضاء فقط</button>
+            <button onclick="sendSystemMessage('${roomName}')" class="btn-blue">📢 رسالة نظام</button>
+            <button onclick="deleteRoomMessages('${roomName}')" class="btn-red">🗑️ حذف الرسائل</button>
+            <button onclick="deleteRoom('${roomName}')" class="btn-red">❌ حذف الغرفة</button>
+            <button onclick="openRoom('${roomName}')" class="btn-green">👁️ عرض الغرفة</button>
           </td>
         `;
         table.appendChild(row);
@@ -120,13 +135,46 @@
     });
   }
 
-  function toggleRoom(roomName, isActive) {
-    db.ref(`rooms/${roomName}`).update({ active: !isActive })
+  function toggleRoom(roomName, status) {
+    db.ref(`rooms/${roomName}`).update({ status: status })
       .then(() => {
-        alert(`تم ${isActive ? "إقفال" : "فتح"} الغرفة: ${roomName}`);
+        alert(`تم تغيير حالة الغرفة ${roomName} إلى: ${status}`);
         loadRooms();
       })
       .catch(() => alert("حدث خطأ أثناء تغيير حالة الغرفة"));
+  }
+
+  function createNewRoom() {
+    const roomName = prompt("أدخل اسم الغرفة الجديدة:");
+    if (!roomName) return;
+
+    db.ref(`rooms/${roomName}`).once("value", snapshot => {
+      if (snapshot.exists()) {
+        alert("الغرفة موجودة بالفعل.");
+        return;
+      }
+      db.ref(`rooms/${roomName}`).set({
+        status: "open",
+        timestamp: firebase.database.ServerValue.TIMESTAMP
+      })
+      .then(() => {
+        alert(`تم إنشاء الغرفة "${roomName}" بنجاح!`);
+        loadRooms();
+      })
+      .catch(error => alert("حدث خطأ في الإنشاء: " + error.message));
+    });
+  }
+
+  function deleteRoom(roomName) {
+    if (!confirm(`هل أنت متأكد من حذف الغرفة "${roomName}" وكل محتوياتها؟`)) {
+      return;
+    }
+    db.ref(`rooms/${roomName}`).remove()
+      .then(() => {
+        alert(`تم حذف الغرفة "${roomName}" بنجاح.`);
+        loadRooms();
+      })
+      .catch(error => alert("حدث خطأ في الحذف: " + error.message));
   }
 
   function sendSystemMessage(roomName) {
@@ -136,7 +184,7 @@
     db.ref(`rooms/${roomName}/messages`).push({
       name: "🚨 النظام",
       message: message,
-      time: new Date().toLocaleTimeString(),
+      timestamp: firebase.database.ServerValue.TIMESTAMP,
       system: true
     })
     .then(() => alert("تم إرسال رسالة النظام بنجاح"))
@@ -152,7 +200,6 @@
       .catch(() => alert("❌ حدث خطأ أثناء حذف الرسائل"));
   }
 
-  // --------- فتح الغرفة وعرض محتوياتها ----------
   let currentOpenedRoom = null;
 
   function openRoom(roomName) {
@@ -169,24 +216,31 @@
     currentOpenedRoom = null;
   }
 
-  // تحميل الرسائل في الغرفة وعرضها
   function loadRoomMessages(roomName) {
     const tbody = document.querySelector("#messagesTable tbody");
     tbody.innerHTML = "";
 
-    db.ref(`rooms/${roomName}/messages`).once("value", snapshot => {
+    db.ref(`rooms/${roomName}/messages`).orderByChild("timestamp").once("value", snapshot => {
       snapshot.forEach(child => {
         const msgKey = child.key;
         const msg = child.val();
+        
+        let formattedTime = "N/A";
+        if (msg.timestamp) {
+            const date = new Date(msg.timestamp);
+            formattedTime = date.toLocaleTimeString() + " " + date.toLocaleDateString();
+        } else if (msg.time) {
+            formattedTime = msg.time;
+        }
 
         const tr = document.createElement("tr");
         tr.innerHTML = `
           <td>${msg.name || "مجهول"}</td>
           <td><textarea id="msgText_${msgKey}" readonly>${msg.message}</textarea></td>
-          <td>${msg.time || ""}</td>
+          <td>${formattedTime}</td>
           <td>
-            <button class="small-btn" onclick="editMessage('${msgKey}')">✏️ تعديل</button>
-            <button class="small-btn" onclick="deleteMessage('${msgKey}')">🗑️ حذف</button>
+            <button class="small-btn btn-blue" onclick="editMessage('${msgKey}')">✏️ تعديل</button>
+            <button class="small-btn btn-red" onclick="deleteMessage('${msgKey}')">🗑️ حذف</button>
           </td>
         `;
         tbody.appendChild(tr);
@@ -194,11 +248,9 @@
     });
   }
 
-  // تعديل رسالة في الغرفة
   function editMessage(msgKey) {
     const textarea = document.getElementById(`msgText_${msgKey}`);
     if (!textarea.readOnly) {
-      // حفظ التعديل
       const newText = textarea.value.trim();
       if (!newText) return alert("لا يمكن ترك الرسالة فارغة.");
 
@@ -209,13 +261,11 @@
         })
         .catch(() => alert("حدث خطأ أثناء تعديل الرسالة."));
     } else {
-      // فتح التعديل
       textarea.readOnly = false;
       textarea.focus();
     }
   }
 
-  // حذف رسالة من الغرفة
   function deleteMessage(msgKey) {
     if (!confirm("هل تريد حذف هذه الرسالة؟")) return;
     db.ref(`rooms/${currentOpenedRoom}/messages/${msgKey}`).remove()
@@ -226,7 +276,6 @@
       .catch(() => alert("حدث خطأ أثناء حذف الرسالة."));
   }
 
-  // ------- عرض المستخدمين في الغرفة -------
   function loadRoomUsers(roomName) {
     const tbody = document.querySelector("#usersTable tbody");
     tbody.innerHTML = "";
@@ -235,35 +284,44 @@
       snapshot.forEach(child => {
         const userId = child.key;
         const user = child.val();
+        
+        // جلب حالة التبنيد من مسار "bans"
+        db.ref(`bans/${userId}`).once("value", (banSnap) => {
+            const banData = banSnap.val();
+            let banStatus = "غير مبند";
+            if (banData) {
+                if (banData.type === "permanent") {
+                    banStatus = "مبند دائمًا";
+                } else if (banData.type === "temporary" && banData.expires) {
+                    const remainingMs = banData.expires - Date.now();
+                    if (remainingMs > 0) {
+                        const remainingMin = Math.floor(remainingMs / 60000);
+                        const remainingSec = Math.floor((remainingMs % 60000) / 1000);
+                        banStatus = `مبند لمدة ${remainingMin} دقيقة و ${remainingSec} ثانية`;
+                    } else {
+                        banStatus = "تم رفع التبنيد";
+                        db.ref(`bans/${userId}`).remove();
+                    }
+                }
+            }
 
-        // تحقق من حالة التبنيد
-        let bannedUntil = user.bannedUntil || 0;
-        const now = Date.now();
-        let banStatus = "غير مبند";
-        if (bannedUntil === -1) banStatus = "مبند دائمًا";
-        else if (bannedUntil > now) {
-          const remainingMs = bannedUntil - now;
-          const remainingMin = Math.floor(remainingMs / 60000);
-          banStatus = `مبند لمدة ${remainingMin} دقيقة`;
-        }
-
-        const tr = document.createElement("tr");
-        tr.innerHTML = `
-          <td>${user.name || userId}</td>
-          <td>${user.online ? "متصل" : "غير متصل"}</td>
-          <td>${banStatus}</td>
-          <td>
-            <button class="small-btn" onclick="banUser('${roomName}', '${userId}')">تبنيد</button>
-            <button class="small-btn" onclick="unbanUser('${roomName}', '${userId}')">رفع التبنيد</button>
-          </td>
-        `;
-        tbody.appendChild(tr);
+            const tr = document.createElement("tr");
+            tr.innerHTML = `
+              <td>${user.name || userId}</td>
+              <td>${user.online ? "متصل" : "غير متصل"}</td>
+              <td>${banStatus}</td>
+              <td>
+                <button class="small-btn btn-red" onclick="banUser('${userId}')">تبنيد</button>
+                <button class="small-btn btn-green" onclick="unbanUser('${userId}')">رفع التبنيد</button>
+              </td>
+            `;
+            tbody.appendChild(tr);
+        });
       });
     });
   }
 
-  // تبنيد المستخدم
-  function banUser(roomName, userId) {
+  function banUser(userId) {
     let duration = prompt("ادخل مدة التبنيد بالدقائق (0 = تبنيد دائم):", "60");
     if (duration === null) return;
 
@@ -272,25 +330,32 @@
       alert("مدة غير صحيحة.");
       return;
     }
+    
+    let banType = "temporary";
+    let expires = null;
+    if (duration === 0) {
+        banType = "permanent";
+    } else {
+        expires = Date.now() + duration * 60000;
+    }
 
-    let bannedUntil;
-    if (duration === 0) bannedUntil = -1; // تبنيد دائم
-    else bannedUntil = Date.now() + duration * 60000;
-
-    db.ref(`rooms/${roomName}/users/${userId}`).update({ bannedUntil })
-      .then(() => {
-        alert(`تم تبنيد المستخدم لمدة ${duration === 0 ? "دائمًا" : duration + " دقيقة"}.`);
-        loadRoomUsers(roomName);
-      })
-      .catch(() => alert("حدث خطأ أثناء التبنيد."));
+    db.ref(`bans/${userId}`).set({
+      type: banType,
+      expires: expires,
+      reason: "تم التبنيد من لوحة الأدمن."
+    })
+    .then(() => {
+      alert(`تم تبنيد المستخدم لمدة ${duration === 0 ? "دائمًا" : duration + " دقيقة"}.`);
+      // لا تحتاج إلى loadRoomUsers() لأنها ستحدث تلقائيًا
+    })
+    .catch(() => alert("حدث خطأ أثناء التبنيد."));
   }
 
-  // رفع التبنيد
-  function unbanUser(roomName, userId) {
-    db.ref(`rooms/${roomName}/users/${userId}`).update({ bannedUntil: 0 })
+  function unbanUser(userId) {
+    db.ref(`bans/${userId}`).remove()
       .then(() => {
         alert("تم رفع التبنيد.");
-        loadRoomUsers(roomName);
+        // لا تحتاج إلى loadRoomUsers() لأنها ستحدث تلقائيًا
       })
       .catch(() => alert("حدث خطأ أثناء رفع التبنيد."));
   }
