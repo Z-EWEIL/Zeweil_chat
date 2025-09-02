@@ -105,16 +105,27 @@
       { id: "Z", name: "رتبة Z (إدارية)", price: 9999999, img: "Z.png", adminOnly: true }
     ];
 
-    firebase.auth().onAuthStateChanged(user => {
-      if (user) {
-        userId = user.uid;
+    // دالة لقراءة المعاملات من الرابط
+    function getUrlParameter(name) {
+        name = name.replace(/[\[]/, '\\[').replace(/[\]]/, '\\]');
+        const regex = new RegExp('[\\?&]' + name + '=([^&#]*)');
+        const results = regex.exec(location.search);
+        return results === null ? '' : decodeURIComponent(results[1].replace(/\+/g, ' '));
+    }
+
+    const userIdFromUrl = getUrlParameter('uid');
+
+    if (userIdFromUrl) {
+        userId = userIdFromUrl;
         loadUserData();
-      } else {
-        firebase.auth().signInAnonymously().catch(console.error);
-      }
-    });
+    } else {
+        // إذا لم يتم تمرير الـ UID، اظهر رسالة للمستخدم
+        document.body.innerHTML = `<h2>رجاءً قم بالدخول إلى المتجر من موقع الدردشة.</h2>`;
+    }
 
     function loadUserData() {
+      if (!userId) return; // تأكد أن userId موجود قبل الاستمرار
+      
       db.ref(`users/${userId}`).once("value").then(snapshot => {
         const data = snapshot.val() || {};
         currentPoints = data.points || 0;
