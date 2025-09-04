@@ -29,7 +29,6 @@
             padding: 20px;
             margin-top: 20px;
         }
-        /* New table styles */
         table {
             width: 100%;
             border-collapse: collapse;
@@ -47,7 +46,6 @@
         tr:hover {
             background-color: #2a2a2a;
         }
-        /* End of new table styles */
         .rank-img {
             width: 40px;
             height: 40px;
@@ -143,31 +141,21 @@
             
             db.ref('users').once('value', (snapshot) => {
                 const users = [];
-                const pointsByUsername = {};
 
                 snapshot.forEach((child) => {
                     const userData = child.val();
-                    const username = userData.name;
+                    const name = userData.name || "مجهول";
                     const points = userData.points || 0;
-                    if (username) {
-                        if (pointsByUsername[username]) {
-                            pointsByUsername[username].points += points;
-                        } else {
-                            pointsByUsername[username] = {
-                                points: points,
-                                rank: userData.rank || "beginner"
-                            };
-                        }
-                    }
+                    const rank = userData.rank || "beginner";
+                    
+                    users.push({
+                        name: name,
+                        points: points,
+                        rank: rank
+                    });
                 });
                 
-                const sortedUsers = Object.keys(pointsByUsername).map(name => ({
-                    name: name,
-                    points: pointsByUsername[name].points,
-                    rank: pointsByUsername[name].rank
-                }));
-
-                sortedUsers.sort((a, b) => {
+                users.sort((a, b) => {
                     const rankA = getRankValue(a.rank);
                     const rankB = getRankValue(b.rank);
                     if (rankA !== rankB) {
@@ -176,7 +164,17 @@
                     return b.points - a.points;
                 });
 
-                const topUsers = sortedUsers.slice(0, 5);
+                const uniqueUsers = [];
+                const seenNames = new Set();
+
+                for (const user of users) {
+                    if (!seenNames.has(user.name)) {
+                        uniqueUsers.push(user);
+                        seenNames.add(user.name);
+                    }
+                }
+                
+                const topUsers = uniqueUsers.slice(0, 5);
                 
                 leaderboardBody.innerHTML = "";
                 if (topUsers.length === 0) {
@@ -204,7 +202,10 @@
             });
         }
         
-        window.onload = fetchLeaderboard;
+        // تعديل: الاستماع للتحديثات التلقائية
+        db.ref('users').on('value', () => {
+            fetchLeaderboard();
+        });
     </script>
 </body>
 </html>
