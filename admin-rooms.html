@@ -247,21 +247,18 @@
     tbody.innerHTML = "";
     const messagesRef = db.ref(`rooms/${roomName}/messages`);
 
-    // Add Listener
     messagesRef.on("child_added", (snapshot) => {
         const msgKey = snapshot.key;
         const msg = snapshot.val();
         addMessageRow(tbody, msgKey, msg);
     });
 
-    // Change Listener
     messagesRef.on("child_changed", (snapshot) => {
         const msgKey = snapshot.key;
         const msg = snapshot.val();
         updateMessageRow(msgKey, msg);
     });
 
-    // Remove Listener
     messagesRef.on("child_removed", (snapshot) => {
         const msgKey = snapshot.key;
         removeMessageRow(msgKey);
@@ -337,10 +334,8 @@
     tbody.innerHTML = "";
     const roomUsersRef = db.ref(`rooms/${roomName}/users`);
 
-    // Add Listener
     roomUsersRef.on("child_added", (snapshot) => {
       const userId = snapshot.key;
-      const user = snapshot.val();
       db.ref(`users/${userId}`).on("value", (userDataSnapshot) => {
         const userData = userDataSnapshot.val();
         if (userData) {
@@ -349,10 +344,8 @@
       });
     });
 
-    // Change Listener
     roomUsersRef.on("child_changed", (snapshot) => {
         const userId = snapshot.key;
-        const user = snapshot.val();
         db.ref(`users/${userId}`).once("value", (userDataSnapshot) => {
           const userData = userDataSnapshot.val();
           if (userData) {
@@ -361,7 +354,6 @@
         });
     });
 
-    // Remove Listener
     roomUsersRef.on("child_removed", (snapshot) => {
         const userId = snapshot.key;
         removeUserRow(userId);
@@ -383,6 +375,7 @@
         <td>
           <button class="small-btn btn-red" onclick="banUser('${userId}')">تبنيد</button>
           <button class="small-btn btn-green" onclick="unbanUser('${userId}')">رفع التبنيد</button>
+          <button class="small-btn btn-red" onclick="deleteUserFromRoom('${userId}', '${userData.name || userId}')">حذف</button>
         </td>
       `;
       tbody.appendChild(tr);
@@ -465,6 +458,16 @@
         alert("تم رفع التبنيد.");
       })
       .catch(() => alert("حدث خطأ أثناء رفع التبنيد."));
+  }
+  
+  function deleteUserFromRoom(userId, userName) {
+    if (confirm(`هل أنت متأكد من حذف المستخدم ${userName} من هذه الغرفة؟`)) {
+      db.ref(`rooms/${currentOpenedRoom}/users/${userId}`).remove()
+        .then(() => {
+          alert(`تم حذف المستخدم ${userName} من الغرفة.`);
+        })
+        .catch(() => alert("حدث خطأ أثناء حذف المستخدم."));
+    }
   }
 </script>
 </body>
