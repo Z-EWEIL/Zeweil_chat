@@ -97,6 +97,11 @@
   firebase.initializeApp(firebaseConfig);
   const db = firebase.database();
 
+  let currentOpenedRoom = null;
+  const roomListeners = {};
+  const userListeners = {};
+  const messageListeners = {};
+
   function loadRooms() {
     const table = document.getElementById("roomTable");
     table.innerHTML = "";
@@ -106,7 +111,6 @@
         const roomName = child.key;
         const room = child.val();
 
-        // تحديد حالة الغرفة للعرض
         let statusText = "غير محدد";
         if (room.status === 'open') {
           statusText = "مفتوحة ✅";
@@ -200,8 +204,6 @@
       .catch(() => alert("❌ حدث خطأ أثناء حذف الرسائل"));
   }
 
-  let currentOpenedRoom = null;
-
   function openRoom(roomName) {
     currentOpenedRoom = roomName;
     document.getElementById("modalRoomName").textContent = roomName;
@@ -213,41 +215,96 @@
 
   function closeModal() {
     document.getElementById("roomModal").style.display = "none";
+    
+    // إيقاف جميع المستمعين عند إغلاق النافذة
+    if (currentOpenedRoom) {
+      if (roomListeners[currentOpenedRoom]) {
+        for (const listener of Object.values(roomListeners[currentOpenedRoom])) {
+          db.ref().off("child_added", listener);
+          db.ref().off("child_changed", listener);
+          db.ref().off("child_removed", listener);
+        }
+      }
+      db.ref(`rooms/${currentOpenedRoom}/messages`).off();
+      db.ref(`rooms/${currentOpenedRoom}/users`).off();
+    }
+    
+    // إيقاف المستمعين على بيانات المستخدمين
+    for (const userId in userListeners) {
+      db.ref(`users/${userId}`).off("value", userListeners[userId]);
+    }
+    for (const msgId in messageListeners) {
+      db.ref(`rooms/${currentOpenedRoom}/messages/${msgId}`).off("value", messageListeners[msgId]);
+    }
+
     currentOpenedRoom = null;
+    document.querySelector("#messagesTable tbody").innerHTML = "";
+    document.querySelector("#usersTable tbody").innerHTML = "";
   }
 
   function loadRoomMessages(roomName) {
     const tbody = document.querySelector("#messagesTable tbody");
     tbody.innerHTML = "";
+    const messagesRef = db.ref(`rooms/${roomName}/messages`);
 
-    db.ref(`rooms/${roomName}/messages`).orderByChild("timestamp").once("value", snapshot => {
-      snapshot.forEach(child => {
-        const msgKey = child.key;
-        const msg = child.val();
-        
-        let formattedTime = "N/A";
-        if (msg.timestamp) {
-            const date = new Date(msg.timestamp);
-            formattedTime = date.toLocaleTimeString() + " " + date.toLocaleDateString();
-        } else if (msg.time) {
-            formattedTime = msg.time;
-        }
+    // Add Listener
+    messagesRef.on("child_added", (snapshot) => {
+        const msgKey = snapshot.key;
+        const msg = snapshot.val();
+        addMessageRow(tbody, msgKey, msg);
+    });
 
-        const tr = document.createElement("tr");
-        tr.innerHTML = `
-          <td>${msg.name || "مجهول"}</td>
-          <td><textarea id="msgText_${msgKey}" readonly>${msg.message}</textarea></td>
-          <td>${formattedTime}</td>
-          <td>
-            <button class="small-btn btn-blue" onclick="editMessage('${msgKey}')">✏️ تعديل</button>
-            <button class="small-btn btn-red" onclick="deleteMessage('${msgKey}')">🗑️ حذف</button>
-          </td>
-        `;
-        tbody.appendChild(tr);
-      });
+    // Change Listener
+    messagesRef.on("child_changed", (snapshot) => {
+        const msgKey = snapshot.key;
+        const msg = snapshot.val();
+        updateMessageRow(msgKey, msg);
+    });
+
+    // Remove Listener
+    messagesRef.on("child_removed", (snapshot) => {
+        const msgKey = snapshot.key;
+        removeMessageRow(msgKey);
     });
   }
+  
+  function addMessageRow(tbody, msgKey, msg) {
+    let formattedTime = "N/A";
+    if (msg.timestamp) {
+        const date = new Date(msg.timestamp);
+        formattedTime = date.toLocaleTimeString() + " " + date.toLocaleDateString();
+    } else if (msg.time) {
+        formattedTime = msg.time;
+    }
 
+    const tr = document.createElement("tr");
+    tr.id = `msg-row-${msgKey}`;
+    tr.innerHTML = `
+      <td>${msg.name || "مجهول"}</td>
+      <td><textarea id="msgText_${msgKey}" readonly>${msg.message}</textarea></td>
+      <td>${formattedTime}</td>
+      <td>
+        <button class="small-btn btn-blue" onclick="editMessage('${msgKey}')">✏️ تعديل</button>
+        <button class="small-btn btn-red" onclick="deleteMessage('${msgKey}')">🗑️ حذف</button>
+      </td>
+    `;
+    tbody.appendChild(tr);
+  }
+
+  function updateMessageRow(msgKey, msg) {
+    const textarea = document.getElementById(`msgText_${msgKey}`);
+    if (textarea) {
+        textarea.value = msg.message;
+    }
+  }
+
+  function removeMessageRow(msgKey) {
+    const row = document.getElementById(`msg-row-${msgKey}`);
+    if (row) {
+        row.remove();
+    }
+  }
+  
   function editMessage(msgKey) {
     const textarea = document.getElementById(`msgText_${msgKey}`);
     if (!textarea.readOnly) {
@@ -271,7 +328,6 @@
     db.ref(`rooms/${currentOpenedRoom}/messages/${msgKey}`).remove()
       .then(() => {
         alert("تم حذف الرسالة.");
-        loadRoomMessages(currentOpenedRoom);
       })
       .catch(() => alert("حدث خطأ أثناء حذف الرسالة."));
   }
@@ -279,48 +335,101 @@
   function loadRoomUsers(roomName) {
     const tbody = document.querySelector("#usersTable tbody");
     tbody.innerHTML = "";
+    const roomUsersRef = db.ref(`rooms/${roomName}/users`);
 
-    db.ref(`rooms/${roomName}/users`).once("value", snapshot => {
-      snapshot.forEach(child => {
-        const userId = child.key;
-        const user = child.val();
-        
-        // جلب حالة التبنيد من مسار "bans"
-        db.ref(`bans/${userId}`).once("value", (banSnap) => {
-            const banData = banSnap.val();
-            let banStatus = "غير مبند";
-            if (banData) {
-                if (banData.type === "permanent") {
-                    banStatus = "مبند دائمًا";
-                } else if (banData.type === "temporary" && banData.expires) {
-                    const remainingMs = banData.expires - Date.now();
-                    if (remainingMs > 0) {
-                        const remainingMin = Math.floor(remainingMs / 60000);
-                        const remainingSec = Math.floor((remainingMs % 60000) / 1000);
-                        banStatus = `مبند لمدة ${remainingMin} دقيقة و ${remainingSec} ثانية`;
-                    } else {
-                        banStatus = "تم رفع التبنيد";
-                        db.ref(`bans/${userId}`).remove();
-                    }
-                }
-            }
-
-            const tr = document.createElement("tr");
-            tr.innerHTML = `
-              <td>${user.name || userId}</td>
-              <td>${user.online ? "متصل" : "غير متصل"}</td>
-              <td>${banStatus}</td>
-              <td>
-                <button class="small-btn btn-red" onclick="banUser('${userId}')">تبنيد</button>
-                <button class="small-btn btn-green" onclick="unbanUser('${userId}')">رفع التبنيد</button>
-              </td>
-            `;
-            tbody.appendChild(tr);
-        });
+    // Add Listener
+    roomUsersRef.on("child_added", (snapshot) => {
+      const userId = snapshot.key;
+      const user = snapshot.val();
+      db.ref(`users/${userId}`).on("value", (userDataSnapshot) => {
+        const userData = userDataSnapshot.val();
+        if (userData) {
+          addUserRow(tbody, userId, userData);
+        }
       });
+    });
+
+    // Change Listener
+    roomUsersRef.on("child_changed", (snapshot) => {
+        const userId = snapshot.key;
+        const user = snapshot.val();
+        db.ref(`users/${userId}`).once("value", (userDataSnapshot) => {
+          const userData = userDataSnapshot.val();
+          if (userData) {
+            updateUserRow(userId, userData);
+          }
+        });
+    });
+
+    // Remove Listener
+    roomUsersRef.on("child_removed", (snapshot) => {
+        const userId = snapshot.key;
+        removeUserRow(userId);
+    });
+  }
+  
+  function addUserRow(tbody, userId, userData) {
+    const tr = document.createElement("tr");
+    tr.id = `user-row-${userId}`;
+
+    db.ref(`bans/${userId}`).once("value", (banSnap) => {
+      const banData = banSnap.val();
+      const banStatus = getBanStatus(banData);
+
+      tr.innerHTML = `
+        <td>${userData.name || userId}</td>
+        <td>${userData.online ? "متصل" : "غير متصل"}</td>
+        <td>${banStatus}</td>
+        <td>
+          <button class="small-btn btn-red" onclick="banUser('${userId}')">تبنيد</button>
+          <button class="small-btn btn-green" onclick="unbanUser('${userId}')">رفع التبنيد</button>
+        </td>
+      `;
+      tbody.appendChild(tr);
     });
   }
 
+  function updateUserRow(userId, userData) {
+    const tr = document.getElementById(`user-row-${userId}`);
+    if (tr) {
+      db.ref(`bans/${userId}`).once("value", (banSnap) => {
+        const banData = banSnap.val();
+        const banStatus = getBanStatus(banData);
+
+        tr.querySelector('td:nth-child(1)').textContent = userData.name || userId;
+        tr.querySelector('td:nth-child(2)').textContent = userData.online ? "متصل" : "غير متصل";
+        tr.querySelector('td:nth-child(3)').textContent = banStatus;
+      });
+    }
+  }
+
+  function removeUserRow(userId) {
+    const tr = document.getElementById(`user-row-${userId}`);
+    if (tr) {
+      tr.remove();
+    }
+  }
+  
+  function getBanStatus(banData) {
+      let banStatus = "غير مبند";
+      if (banData) {
+          if (banData.type === "permanent") {
+              banStatus = "مبند دائمًا";
+          } else if (banData.type === "temporary" && banData.expires) {
+              const remainingMs = banData.expires - Date.now();
+              if (remainingMs > 0) {
+                  const remainingMin = Math.floor(remainingMs / 60000);
+                  const remainingSec = Math.floor((remainingMs % 60000) / 1000);
+                  banStatus = `مبند لمدة ${remainingMin} دقيقة و ${remainingSec} ثانية`;
+              } else {
+                  banStatus = "تم رفع التبنيد";
+                  db.ref(`bans/${banData.userId}`).remove();
+              }
+          }
+      }
+      return banStatus;
+  }
+  
   function banUser(userId) {
     let duration = prompt("ادخل مدة التبنيد بالدقائق (0 = تبنيد دائم):", "60");
     if (duration === null) return;
@@ -346,7 +455,6 @@
     })
     .then(() => {
       alert(`تم تبنيد المستخدم لمدة ${duration === 0 ? "دائمًا" : duration + " دقيقة"}.`);
-      // لا تحتاج إلى loadRoomUsers() لأنها ستحدث تلقائيًا
     })
     .catch(() => alert("حدث خطأ أثناء التبنيد."));
   }
@@ -355,11 +463,9 @@
     db.ref(`bans/${userId}`).remove()
       .then(() => {
         alert("تم رفع التبنيد.");
-        // لا تحتاج إلى loadRoomUsers() لأنها ستحدث تلقائيًا
       })
       .catch(() => alert("حدث خطأ أثناء رفع التبنيد."));
   }
-
 </script>
 </body>
 </html>
