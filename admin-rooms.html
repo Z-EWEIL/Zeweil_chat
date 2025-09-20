@@ -118,6 +118,8 @@
           statusText = "مغلقة 🛑";
         } else if (room.status === 'membersOnly') {
           statusText = "للأعضاء فقط 🔐";
+        } else if (room.password) {
+          statusText = "مغلقة بكلمة مرور 🔒";
         }
 
         const row = document.createElement("tr");
@@ -128,6 +130,7 @@
             <button onclick="toggleRoom('${roomName}', 'open')" class="btn-green">✅ فتح الغرفة</button>
             <button onclick="toggleRoom('${roomName}', 'closed')" class="btn-red">🛑 إغلاق للجميع</button>
             <button onclick="toggleRoom('${roomName}', 'membersOnly')" class="btn-orange">🔐 إغلاق للأعضاء فقط</button>
+            <button onclick="setPassword('${roomName}')" class="btn-blue">🔒 تعيين كلمة مرور</button>
             <button onclick="sendSystemMessage('${roomName}')" class="btn-blue">📢 رسالة نظام</button>
             <button onclick="deleteRoomMessages('${roomName}')" class="btn-red">🗑️ حذف الرسائل</button>
             <button onclick="deleteRoom('${roomName}')" class="btn-red">❌ حذف الغرفة</button>
@@ -140,13 +143,39 @@
   }
 
   function toggleRoom(roomName, status) {
-    db.ref(`rooms/${roomName}`).update({ status: status })
+    db.ref(`rooms/${roomName}`).update({ status: status, password: null })
       .then(() => {
         alert(`تم تغيير حالة الغرفة ${roomName} إلى: ${status}`);
         loadRooms();
       })
       .catch(() => alert("حدث خطأ أثناء تغيير حالة الغرفة"));
   }
+  
+  function setPassword(roomName) {
+    const password = prompt("أدخل كلمة المرور للغرفة: (اترك الحقل فارغًا لإزالة كلمة المرور)");
+    if (password === null) return; // المستخدم ضغط على إلغاء
+
+    if (password === "") {
+        // إذا كان الحقل فارغًا، نحذف كلمة المرور ونغير الحالة إلى "مفتوحة"
+        db.ref(`rooms/${roomName}`).update({
+            status: "open",
+            password: null
+        }).then(() => {
+            alert(`تمت إزالة كلمة المرور من الغرفة ${roomName}.`);
+            loadRooms();
+        }).catch(() => alert("حدث خطأ أثناء إزالة كلمة المرور."));
+    } else {
+        // إذا كان هناك كلمة مرور، نحدثها ونغير الحالة
+        db.ref(`rooms/${roomName}`).update({
+            status: "passwordProtected", // حالة جديدة لكلمة المرور
+            password: password
+        }).then(() => {
+            alert(`تم تعيين كلمة المرور بنجاح للغرفة ${roomName}.`);
+            loadRooms();
+        }).catch(() => alert("حدث خطأ أثناء تعيين كلمة المرور."));
+    }
+  }
+
 
   function createNewRoom() {
     const roomName = prompt("أدخل اسم الغرفة الجديدة:");
