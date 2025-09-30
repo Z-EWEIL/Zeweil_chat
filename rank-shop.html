@@ -39,12 +39,19 @@
       margin: 10px;
       width: 300px;
       text-align: center;
-      box-shadow: 0 0 10px #0f0;
+      /* التوهج الافتراضي */
+      box-shadow: 0 0 10px #0f0; 
       transition: transform 0.2s ease;
     }
     .rank-card:hover {
       transform: scale(1.05);
     }
+    /* تنسيق خاص لرتبة الأسطورة */
+    .rank-card.legend-glow {
+        box-shadow: 0 0 15px gold, 0 0 20px rgba(255, 215, 0, 0.7); /* توهج ذهبي أقوى */
+        border: 1px solid gold;
+    }
+    
     .rank-img {
       width: 50px;
       height: 50px;
@@ -111,14 +118,20 @@
     // رابط صور البادجات على GitHub
     const baseImageUrl = "https://raw.githubusercontent.com/Z-EWEIL/Zeweil_chat/main/";
 
+    // ==========================================================
+    // تم إضافة رتبة 'legend' (الأسطورة) هنا
+    // ==========================================================
     const ranks = [
       { id: "beginner", name: "مبتدئ", price: 100, img: "beginner.png" },
       { id: "intermediate", name: "متوسط", price: 250, img: "intermediate.png" },
       { id: "expert", name: "خبير", price: 500, img: "expert.png" },
       { id: "professional", name: "محترف", price: 1000, img: "professional.png" },
       { id: "pro", name: "بروفشينال", price: 2000, img: "pro.png" },
+      { id: "legend", name: "الأسطورة", price: 4500, img: "legend.png" }, // الرتبة الجديدة
       { id: "Z", name: "رتبة Z (إدارية)", price: 9999999, img: "Z.png", adminOnly: true }
     ];
+    // ==========================================================
+    
 
     // دالة لقراءة المعاملات من الرابط
     function getUrlParameter(name) {
@@ -163,6 +176,14 @@
 
         const card = document.createElement("div");
         card.className = "rank-card";
+        
+        // ==========================================================
+        // إضافة تنسيق 'legend-glow' إذا كانت الرتبة هي 'الأسطورة'
+        // ==========================================================
+        if (rank.id === 'legend') {
+             card.classList.add('legend-glow');
+        }
+        // ==========================================================
 
         card.innerHTML = `
           <img class="rank-img" src="${baseImageUrl + rank.img}" alt="${rank.name}">
