@@ -219,14 +219,17 @@
 
     const correctPassword = "78789812";
 
+    // 🔴 تم إضافة رتبة 'lover' (حبيب) هنا 
     const ranks = [
       {en: "beginner", ar: "مبتدئ"},
       {en: "intermediate", ar: "متوسط"},
       {en: "expert", ar: "خبير"},
       {en: "professional", ar: "محترف"},
       {en: "pro", ar: "محترف متمرس"},
+      {en: "lover", ar: "حبيب ❤️"}, // الرتبة الخاصة الجديدة
       {en: "z", ar: "زويل"}
     ];
+    // ------------------------------------
 
     document.getElementById("banType").addEventListener("change", function() {
       const durationInput = document.getElementById("banDuration");
@@ -240,7 +243,8 @@
     function getRankImg(rank) {
       if (!rank) return "";
       const baseRaw = "https://raw.githubusercontent.com/Z-EWEIL/Zeweil_chat/main/";
-      const filename = `${rank}.png`;
+      // ملاحظة: تأكد من أن لديك ملف باسم 'lover.png' و 'z.png' على مسار GitHub الخاص بك
+      const filename = `${rank}.png`; 
       return `<img src="${baseRaw}${filename}" alt="${rank}" class="rank-icon" />`;
     }
 
@@ -266,7 +270,8 @@
           const user = child.val();
           const key = child.key;
           const currentRank = user.rank || "beginner";
-          const rankObj = ranks.find(r => r.en === currentRank) || ranks[0];
+          // البحث عن الرتبة بالاسم الإنجليزي 'en' أو استخدام 'beginner' كافتراضي
+          const rankObj = ranks.find(r => r.en === currentRank) || ranks[0]; 
           const notificationsEnabled = user.notificationsEnabled !== false;
 
           const row = document.createElement("tr");
